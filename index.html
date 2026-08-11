@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Fenix Wallet - Controle Financeiro, Extratos & Gastos Futuros</title>
+  
+  <!-- Meta PWA -->
+  <meta name="description" content="Fenix Wallet - Seu controle financeiro completo com leitor de extratos bancários (OFX/CSV) e gastos futuros." />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Fenix Wallet" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2953/2953361.png" />
+
+  <!-- Fonts & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="css/styles.css" />
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+  <!-- AUTH OVERLAY -->
+  <div id="authOverlay" class="auth-overlay hidden">
+    <div class="auth-card">
+      <div class="auth-header">
+        <div class="auth-logo-icon"><i class="fa-solid fa-fire"></i></div>
+        <h2>Fenix<span>Wallet</span></h2>
+        <p id="authSubtitle">Selecione uma conta para acessar suas finanças</p>
+      </div>
+
+      <div id="accountSelectView" class="auth-view hidden">
+        <div class="accounts-grid" id="accountsGrid"></div>
+        <button id="btnGoToCreateAccount" class="btn btn-outline full-width mt-4">
+          <i class="fa-solid fa-user-plus"></i> Criar Nova Conta
+        </button>
+      </div>
+
+      <div id="accountCreateView" class="auth-view hidden">
+        <form id="createAccountForm">
+          <div class="form-group">
+            <label for="regName">Seu Nome ou Nome da Conta</label>
+            <input type="text" id="regName" placeholder="Ex: Alex Souza, Cartão Principal" required />
+          </div>
+
+          <div class="form-group">
+            <label for="regEmail">E-mail de Identificação</label>
+            <input type="email" id="regEmail" placeholder="seuemail@exemplo.com" required />
+          </div>
+
+          <div class="avatar-select-group">
+            <label>Escolha sua Foto de Perfil</label>
+            <div class="avatar-options" id="avatarOptionsContainer"></div>
+          </div>
+
+          <div class="auth-actions">
+            <button type="button" id="btnCancelCreateAccount" class="btn btn-secondary hidden">Voltar</button>
+            <button type="submit" class="btn btn-primary full-width">
+              <i class="fa-solid fa-right-to-bracket"></i> Entrar no Fenix Wallet
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- APP MAIN CONTAINER -->
+  <div id="app" class="app-layout">
+    <!-- Sidebar Desktop -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="logo">
+          <div class="logo-icon">
+            <i class="fa-solid fa-fire"></i>
+          </div>
+          <div class="logo-text">
+            <span class="logo-name">Fenix<span class="highlight">Wallet</span></span>
+            <span class="logo-tag">Pro v2.5</span>
+          </div>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-tab="dashboard">
+          <i class="fa-solid fa-house"></i>
+          <span>Início & Cartões</span>
+        </button>
+        <button class="nav-item" data-tab="upcoming">
+          <i class="fa-solid fa-calendar-check"></i>
+          <span>Gastos Futuros</span>
+        </button>
+        <button class="nav-item" data-tab="transactions">
+          <i class="fa-solid fa-receipt"></i>
+          <span>Transações</span>
+        </button>
+        <button class="nav-item" data-tab="budgets">
+          <i class="fa-solid fa-bullseye"></i>
+          <span>Metas & Orçamentos</span>
+        </button>
+        <button class="nav-item" data-tab="settings">
+          <i class="fa-solid fa-gear"></i>
+          <span>Perfil & Ajustes</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <button id="pwaInstallBtn" class="btn-install-pwa hidden">
+          <i class="fa-solid fa-download"></i>
+          <span>Instalar o App</span>
+        </button>
+
+        <!-- CLICAR NO USER PILL ABRE O MODAL DE PERFIL -->
+        <div class="user-pill-container">
+          <div class="user-pill openProfileModalBtn" id="activeUserPill" title="Clique para editar foto ou perfil">
+            <img src="" id="userAvatarImg" alt="Avatar" class="avatar-img" />
+            <div class="user-info">
+              <span class="user-greeting" id="userNameDisplay">Carregando...</span>
+              <span class="user-status"><i class="fa-solid fa-user-pen"></i> Ver Perfil</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <!-- Topbar Header -->
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="mobile-menu-btn" id="mobileMenuBtn">
+            <i class="fa-solid fa-bars-staggered"></i>
+          </button>
+          <div class="user-greeting-mobile openProfileModalBtn" style="cursor:pointer;" title="Ver Perfil">
+            <span class="subtext" id="topbarUserGreeting">Olá! 👋</span>
+            <h1 class="page-title">Fenix Wallet</h1>
+          </div>
+        </div>
+
+        <div class="topbar-right">
+          <div class="month-selector">
+            <button id="prevMonthBtn" title="Mês anterior"><i class="fa-solid fa-chevron-left"></i></button>
+            <span id="currentMonthDisplay" class="current-month">Agosto 2026</span>
+            <button id="nextMonthBtn" title="Próximo mês"><i class="fa-solid fa-chevron-right"></i></button>
+          </div>
+
+          <!-- Botão Importar Extratos Bancários (OFX/CSV) -->
+          <button id="openBankImportTopBtn" class="btn-icon-top" title="Importar Extrato Bancário (OFX/CSV)">
+            <i class="fa-solid fa-file-import"></i>
+          </button>
+
+          <!-- Alternador Noturno / Claro -->
+          <button id="themeToggleBtn" class="btn-icon-top" title="Alternar Modo Noturno / Claro">
+            <i class="fa-solid fa-moon" id="themeIcon"></i>
+          </button>
+
+          <button id="switchAccountTopBtn" class="btn-icon-top" title="Trocar de Conta">
+            <i class="fa-solid fa-users-viewfinder"></i>
+          </button>
+
+          <button id="quickAddBtn" class="btn-circle-add openAddModalBtn" title="Nova Transação">
+            <i class="fa-solid fa-plus"></i>
+          </button>
+        </div>
+      </header>
+
+      <!-- Dynamic Views Container -->
+      <div class="content-body">
+
+        <!-- TAB 1: DASHBOARD & CARTÕES -->
+        <section id="tab-dashboard" class="tab-view active">
+          
+          <!-- BANNER DE DICAS FINANCEIRAS E INSIGHTS INTELIGENTES -->
+          <div class="insights-banner-card" id="smartInsightsBanner">
+            <div class="insights-icon"><i class="fa-solid fa-lightbulb"></i></div>
+            <div class="insights-content">
+              <h4>Dica Inteligente Fenix</h4>
+              <p id="smartInsightText">Calculando análise das suas despesas para este mês...</p>
+            </div>
+            <button class="insights-close-btn" onclick="this.parentElement.style.display='none'"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+
+          <!-- CARROSSÉL DE CARTÕES DE CRÉDITO -->
+          <div class="cards-section-wrapper">
+            <div class="section-header">
+              <h3><i class="fa-solid fa-credit-card" style="color: var(--accent-red-primary);"></i> Meus Cartões de Crédito</h3>
+              <button class="btn btn-secondary btn-sm" id="openAddCardModalBtn">
+                <i class="fa-solid fa-plus"></i> Novo Cartão
+              </button>
+            </div>
+            <div class="cards-slider-container" id="cardsSliderContainer"></div>
+          </div>
+
+          <!-- ATALHOS RÁPIDOS -->
+          <div class="section-container">
+            <div class="section-header">
+              <h3>Atalhos Rápidos</h3>
+              <button class="btn-link" data-tab-jump="transactions">Ver tudo</button>
+            </div>
+            <div class="quick-actions-grid">
+              <button class="quick-action-item openAddModalBtn">
+                <div class="quick-icon-circle add"><i class="fa-solid fa-plus"></i></div>
+                <span>Adicionar</span>
+              </button>
+
+              <button class="quick-action-item" id="openBankImportShortcutBtn">
+                <div class="quick-icon-circle category"><i class="fa-solid fa-file-import"></i></div>
+                <span>Extratos OFX</span>
+              </button>
+
+              <button class="quick-action-item" data-tab-jump="upcoming">
+                <div class="quick-icon-circle insights"><i class="fa-solid fa-calendar-check"></i></div>
+                <span>Contas a Pagar</span>
+              </button>
+
+              <button class="quick-action-item" id="quickExportCsvBtn">
+                <div class="quick-icon-circle export"><i class="fa-solid fa-file-arrow-down"></i></div>
+                <span>Exportar</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Stats Grid -->
+          <div class="stats-grid">
+            <div class="stat-card income">
+              <div class="stat-header">
+                <span class="stat-title">Receitas do Mês</span>
+                <div class="stat-icon-wrapper"><i class="fa-solid fa-arrow-down-long"></i></div>
+              </div>
+              <div class="stat-value" id="statIncome">R$ 0,00</div>
+              <div class="stat-subtitle text-emerald"><i class="fa-solid fa-circle-check"></i> Entradas confirmadas</div>
+            </div>
+
+            <div class="stat-card expense">
+              <div class="stat-header">
+                <span class="stat-title">Despesas do Mês</span>
+                <div class="stat-icon-wrapper"><i class="fa-solid fa-arrow-up-long"></i></div>
+              </div>
+              <div class="stat-value" id="statExpense">R$ 0,00</div>
+              <div class="stat-subtitle text-rose" id="statExpenseSub"><i class="fa-solid fa-circle-exclamation"></i> Saídas registradas</div>
+            </div>
+
+            <div class="stat-card savings">
+              <div class="stat-header">
+                <span class="stat-title">Taxa de Poupança</span>
+                <div class="stat-icon-wrapper"><i class="fa-solid fa-piggy-bank"></i></div>
+              </div>
+              <div class="stat-value" id="statSavingsRate">0%</div>
+              <div class="stat-subtitle" id="statSavingsSub">Economia acumulada</div>
+            </div>
+          </div>
+
+          <!-- Charts Section -->
+          <div class="charts-grid">
+            <div class="chart-card">
+              <div class="card-header">
+                <h3><i class="fa-solid fa-chart-pie"></i> Despesas por Categoria</h3>
+                <span class="card-badge">Mês Atual</span>
+              </div>
+              <div class="chart-wrapper">
+                <canvas id="categoryChart"></canvas>
+                <div id="noChartCategoryData" class="chart-empty hidden">
+                  <i class="fa-solid fa-receipt"></i>
+                  <p>Nenhuma despesa registrada neste mês.</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="chart-card">
+              <div class="card-header">
+                <h3><i class="fa-solid fa-chart-column"></i> Fluxo de Caixa Mensal</h3>
+                <span class="card-badge">Receita vs Despesa</span>
+              </div>
+              <div class="chart-wrapper">
+                <canvas id="cashflowChart"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- Recent Transactions & Goals Section -->
+          <div class="dashboard-bottom-grid">
+            <div class="panel-card">
+              <div class="card-header">
+                <h3><i class="fa-solid fa-clock-rotate-left"></i> Últimas Transações</h3>
+                <button class="btn-link" data-tab-jump="transactions">Ver todas <i class="fa-solid fa-arrow-right"></i></button>
+              </div>
+              <div id="recentTransactionsList" class="transactions-list"></div>
+            </div>
+
+            <div class="panel-card">
+              <div class="card-header">
+                <h3><i class="fa-solid fa-trophy"></i> Suas Metas</h3>
+                <button class="btn-link" data-tab-jump="budgets">Gerenciar <i class="fa-solid fa-arrow-right"></i></button>
+              </div>
+              <div id="miniGoalsList" class="goals-mini-list"></div>
+            </div>
+          </div>
+
+        </section>
+
+        <!-- TAB NOVO: GASTOS FUTUROS & CONTAS A PAGAR -->
+        <section id="tab-upcoming" class="tab-view">
+          <div class="page-header">
+            <div>
+              <h2>Gastos Futuros & Contas a Pagar</h2>
+              <p class="section-desc">Planeje suas contas que vão vencer e dê baixa com um clique.</p>
+            </div>
+            <button class="btn btn-primary" id="openUpcomingModalBtn">
+              <i class="fa-solid fa-plus"></i> Novo Gasto Futuro
+            </button>
+          </div>
+
+          <div class="panel-card">
+            <div class="card-header">
+              <h3><i class="fa-solid fa-calendar-check"></i> Próximos Vencimentos</h3>
+              <span class="card-badge">Pendentes</span>
+            </div>
+            <div id="upcomingExpensesList" class="upcoming-container">
+              <!-- JS Inject Upcoming Items -->
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 3: TRANSAÇÕES -->
+        <section id="tab-transactions" class="tab-view">
+          <div class="page-header">
+            <div>
+              <h2>Transações Financeiras</h2>
+              <p class="section-desc">Gerencie e filtre todos os seus lançamentos por cartão ou categoria.</p>
+            </div>
+            <button class="btn btn-primary openAddModalBtn">
+              <i class="fa-solid fa-plus"></i> Nova Transação
+            </button>
+          </div>
+
+          <div class="filter-card">
+            <div class="filter-row">
+              <div class="search-box">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="searchInput" placeholder="Buscar por descrição..." />
+              </div>
+              <div class="filter-group">
+                <select id="filterType">
+                  <option value="all">Todos os Tipos</option>
+                  <option value="receita">Apenas Receitas</option>
+                  <option value="despesa">Apenas Despesas</option>
+                </select>
+                <select id="filterCategory">
+                  <option value="all">Todas as Categorias</option>
+                </select>
+                <select id="filterCard">
+                  <option value="all">Todos os Cartões</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel-card">
+            <div class="transactions-table-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Data</th>
+                    <th>Categoria</th>
+                    <th>Forma de Pagamento</th>
+                    <th>Descrição</th>
+                    <th>Tipo</th>
+                    <th class="text-right">Valor</th>
+                    <th class="text-center">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="fullTransactionsTableBody"></tbody>
+              </table>
+            </div>
+
+            <div id="mobileTransactionsList" class="mobile-tx-cards-container"></div>
+
+            <div id="emptyTransactionsState" class="empty-state hidden">
+              <div class="empty-icon"><i class="fa-solid fa-folder-open"></i></div>
+              <h3>Nenhuma transação encontrada</h3>
+              <p>Adicione um novo lançamento ou ajuste seus filtros.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 4: ORÇAMENTOS E METAS -->
+        <section id="tab-budgets" class="tab-view">
+          <div class="page-header">
+            <div>
+              <h2>Orçamentos & Metas</h2>
+              <p class="section-desc">Controle seus tetos de gastos e economize mais.</p>
+            </div>
+            <div class="header-actions">
+              <button class="btn btn-secondary" id="openGoalModalBtn">
+                <i class="fa-solid fa-trophy"></i> Nova Meta
+              </button>
+              <button class="btn btn-primary" id="openBudgetModalBtn">
+                <i class="fa-solid fa-sliders"></i> Definir Orçamento
+              </button>
+            </div>
+          </div>
+
+          <div class="budgets-goals-grid">
+            <div class="panel-card">
+              <div class="card-header">
+                <h3><i class="fa-solid fa-chart-line"></i> Tetos de Gastos Mensais</h3>
+                <span class="card-badge">Por Categoria</span>
+              </div>
+              <div id="budgetsList" class="budgets-container"></div>
+            </div>
+
+            <div class="panel-card">
+              <div class="card-header">
+                <h3><i class="fa-solid fa-piggy-bank"></i> Metas de Economia</h3>
+                <span class="card-badge">Objetivos</span>
+              </div>
+              <div id="goalsList" class="goals-container"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 5: PERFIL & AJUSTES -->
+        <section id="tab-settings" class="tab-view">
+          <div class="page-header">
+            <div>
+              <h2>Perfil & Configurações Fenix</h2>
+              <p class="section-desc">Altere sua foto de perfil, dados e aparência do aplicativo.</p>
+            </div>
+          </div>
+
+          <div class="settings-grid">
+            <!-- Editar Perfil -->
+            <div class="panel-card">
+              <div class="card-header">
+                <h3><i class="fa-solid fa-user-pen"></i> Personalizar Perfil</h3>
+              </div>
+              <div class="settings-card-body">
+                <form id="editProfileForm">
+                  <div class="account-profile-box">
+                    <img src="" id="profileSettingsAvatar" class="avatar-img-lg" alt="Avatar" />
+                    <div style="flex:1;">
+                      <label style="font-size:0.8rem; font-weight:700;">Foto de Perfil (URL ou caminho local)</label>
+                      <input type="text" id="profileAvatarUrlInput" placeholder="https://exemplo.com/foto.jpg ou assets/avatars/ash.jpg" style="font-size:0.85rem;" />
+                    </div>
+                  </div>
+
+                  <div class="avatar-select-group mt-3">
+                    <label>Ou Escolha da Galeria de Avatares:</label>
+                    <div class="avatar-options" id="editAvatarOptionsContainer"></div>
+                  </div>
+
+                  <div class="form-group">
+                    <label for="profileNameInput">Seu Nome</label>
+                    <input type="text" id="profileNameInput" required />
+                  </div>
+
+                  <div class="form-group">
+                    <label for="profileEmailInput">Seu E-mail</label>
+                    <input type="email" id="profileEmailInput" required />
+                  </div>
+
+                  <button type="submit" class="btn btn-primary full-width">
+                    <i class="fa-solid fa-floppy-disk"></i> Salvar Perfil
+                  </button>
+                </form>
+
+                <hr class="divider" />
+                <button id="logoutBtn" class="btn btn-secondary">
+                  <i class="fa-solid fa-arrow-right-from-bracket"></i> Sair / Trocar de Conta
+                </button>
+              </div>
+            </div>
+
+            <!-- Backup & Tema -->
+            <div class="panel-card">
+              <div class="card-header">
+                <h3><i class="fa-solid fa-sliders"></i> Aparência & Dados</h3>
+              </div>
+              <div class="settings-card-body">
+                <div class="theme-switch-box">
+                  <div>
+                    <h4>Modo Noturno / Claro</h4>
+                    <p class="text-muted" style="font-size:0.8rem;">Alterne a estética visual.</p>
+                  </div>
+                  <button id="themeToggleBtnSettings" class="btn btn-secondary">
+                    <i class="fa-solid fa-moon"></i> Alternar Tema
+                  </button>
+                </div>
+
+                <hr class="divider" />
+                <h4>Importar Extratos do Banco (OFX / CSV)</h4>
+                <p class="text-muted" style="font-size:0.8rem;">Importe até 5 arquivos de extrato simultaneamente.</p>
+                <button id="openBankImportSettingsBtn" class="btn btn-outline full-width">
+                  <i class="fa-solid fa-file-import"></i> Importar Extratos Bancários
+                </button>
+
+                <hr class="divider" />
+                <h4>Backup de Dados em Arquivo</h4>
+                <div class="btn-group">
+                  <button id="exportJsonBtn" class="btn btn-success"><i class="fa-solid fa-download"></i> Baixar JSON</button>
+                  <button id="exportCsvBtn" class="btn btn-secondary"><i class="fa-solid fa-file-csv"></i> Exportar CSV</button>
+                </div>
+
+                <div class="import-box mt-3">
+                  <h4>Restaurar Backup (JSON)</h4>
+                  <input type="file" id="importJsonInput" accept=".json" class="hidden-file-input" />
+                  <button id="triggerImportBtn" class="btn btn-outline">
+                    <i class="fa-solid fa-upload"></i> Selecionar Arquivo JSON
+                  </button>
+                </div>
+
+                <hr class="divider" />
+                <div class="danger-zone">
+                  <h4><i class="fa-solid fa-triangle-exclamation"></i> Zona de Perigo</h4>
+                  <button id="clearDataBtn" class="btn btn-danger-outline">
+                    <i class="fa-solid fa-trash-can"></i> Resetar Dados desta Conta
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+
+    <!-- Mobile Bottom Navigation Bar -->
+    <nav class="bottom-nav">
+      <button class="bottom-nav-item active" data-tab="dashboard">
+        <i class="fa-solid fa-house"></i>
+        <span>Início</span>
+      </button>
+      <button class="bottom-nav-item" data-tab="upcoming">
+        <i class="fa-solid fa-calendar-check"></i>
+        <span>Futuros</span>
+      </button>
+      
+      <button class="bottom-nav-fab openAddModalBtn" id="mobileFabBtn" title="Nova Transação">
+        <i class="fa-solid fa-plus"></i>
+      </button>
+
+      <button class="bottom-nav-item" data-tab="transactions">
+        <i class="fa-solid fa-receipt"></i>
+        <span>Extrato</span>
+      </button>
+      <button class="bottom-nav-item" data-tab="settings">
+        <i class="fa-solid fa-gear"></i>
+        <span>Perfil</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- MODAL TRANSAÇÃO -->
+  <div class="modal-backdrop hidden" id="transactionModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="transactionModalTitle"><i class="fa-solid fa-circle-plus"></i> Nova Transação</h3>
+        <button class="modal-close-btn closeModalBtn"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form id="transactionForm">
+        <input type="hidden" id="txId" />
+        
+        <div class="type-selector">
+          <label class="type-btn active despesa">
+            <input type="radio" name="txType" value="despesa" checked />
+            <i class="fa-solid fa-arrow-up-long"></i> Despesa
+          </label>
+          <label class="type-btn receita">
+            <input type="radio" name="txType" value="receita" />
+            <i class="fa-solid fa-arrow-down-long"></i> Receita
+          </label>
+        </div>
+
+        <div class="form-group">
+          <label for="txAmount">Valor (R$)</label>
+          <div class="input-prefix">
+            <span>R$</span>
+            <input type="number" id="txAmount" step="0.01" min="0.01" placeholder="0,00" required />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="txDescription">Descrição</label>
+          <input type="text" id="txDescription" placeholder="Ex: Supermercado, Aluguel, Netflix" required />
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="txCategory">Categoria</label>
+            <select id="txCategory" required></select>
+          </div>
+          <div class="form-group">
+            <label for="txCard">Cartão / Forma de Pgto</label>
+            <select id="txCard">
+              <option value="">Dinheiro / PIX</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="txDate">Data</label>
+          <input type="date" id="txDate" required />
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary closeModalBtn">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Salvar Transação</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL IMPORTAR EXTRATOS BANCÁRIOS MULTI-ARQUIVOS (ATÉ 5 ARQUIVOS OFX / CSV) -->
+  <div class="modal-backdrop hidden" id="bankImportModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-file-import"></i> Importar Extratos Bancários</h3>
+        <button class="modal-close-btn closeModalBtn"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="bank-import-body">
+        <p>Selecione até <strong>5 arquivos de extrato</strong> (arquivos <code>.OFX</code> ou <code>.CSV</code> baixados do app do seu banco ex: Nubank, Itaú, Inter).</p>
+        
+        <div class="dropzone-box" id="dropzoneBox">
+          <i class="fa-solid fa-cloud-arrow-up dropzone-icon"></i>
+          <span>Clique para selecionar arquivos (.OFX ou .CSV)</span>
+          <span class="subtext">Máximo 5 arquivos simultâneos</span>
+          <input type="file" id="bankFileInput" accept=".ofx,.csv" multiple class="hidden-file-input" />
+        </div>
+
+        <div id="selectedFilesList" class="selected-files-list"></div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary closeModalBtn">Cancelar</button>
+          <button type="button" id="btnProcessImport" class="btn btn-primary" disabled>
+            <i class="fa-solid fa-file-check"></i> Processar e Lançar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL NOVO GASTO FUTURO / CONTA A PAGAR -->
+  <div class="modal-backdrop hidden" id="upcomingModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-calendar-plus"></i> Novo Gasto Futuro / Conta a Pagar</h3>
+        <button class="modal-close-btn closeModalBtn"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form id="upcomingForm">
+        <div class="form-group">
+          <label for="upDescription">Descrição do Gasto Futuro</label>
+          <input type="text" id="upDescription" placeholder="Ex: Fatura Nubank, Aluguel, Luz" required />
+        </div>
+
+        <div class="form-group">
+          <label for="upAmount">Valor Previsto (R$)</label>
+          <div class="input-prefix">
+            <span>R$</span>
+            <input type="number" id="upAmount" step="0.01" min="0.01" placeholder="0,00" required />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="upCategory">Categoria</label>
+            <select id="upCategory" required></select>
+          </div>
+          <div class="form-group">
+            <label for="upDueDate">Data de Vencimento</label>
+            <input type="date" id="upDueDate" required />
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary closeModalBtn">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Agendar Gasto</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL ADICIONAR NOVO CARTÃO -->
+  <div class="modal-backdrop hidden" id="cardModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-credit-card"></i> Cadastrar Novo Cartão</h3>
+        <button class="modal-close-btn closeModalBtn"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form id="cardForm">
+        <div class="form-group">
+          <label for="cardName">Nome do Cartão (ex: Nubank, Itaú, Inter)</label>
+          <input type="text" id="cardName" placeholder="Ex: Cartão Nubank Black" required />
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="cardBrand">Bandeira</label>
+            <select id="cardBrand" required>
+              <option value="VISA">VISA</option>
+              <option value="MASTERCARD">Mastercard</option>
+              <option value="ELO">Elo</option>
+              <option value="AMEX">American Express</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="cardLastDigits">Últimos 4 Dígitos</label>
+            <input type="text" id="cardLastDigits" maxlength="4" placeholder="5678" required />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="cardLimit">Limite Total (R$)</label>
+            <input type="number" id="cardLimit" step="0.01" min="1" placeholder="5000,00" required />
+          </div>
+          <div class="form-group">
+            <label for="cardDueDay">Dia de Vencimento</label>
+            <input type="number" id="cardDueDay" min="1" max="31" placeholder="10" required />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="cardColor">Cor do Cartão</label>
+          <select id="cardColor">
+            <option value="linear-gradient(135deg, #f43f5e 0%, #e11d48 50%, #881337 100%)">Fenix Vermelho (Padrão)</option>
+            <option value="linear-gradient(135deg, #a855f7 0%, #7e22ce 50%, #581c87 100%)">Roxo Nubank</option>
+            <option value="linear-gradient(135deg, #f97316 0%, #ea580c 50%, #9a3412 100%)">Laranja Inter</option>
+            <option value="linear-gradient(135deg, #3b82f6 0%, #1d4ed8 50%, #1e3a8a 100%)">Azul Itaú / Bradesco</option>
+            <option value="linear-gradient(135deg, #334155 0%, #0f172a 50%, #020617 100%)">Black / Carbon</option>
+          </select>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary closeModalBtn">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Salvar Cartão</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL ORÇAMENTO -->
+  <div class="modal-backdrop hidden" id="budgetModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-sliders"></i> Definir Orçamento Mensal</h3>
+        <button class="modal-close-btn closeModalBtn"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form id="budgetForm">
+        <div class="form-group">
+          <label for="budgetCategory">Categoria de Despesa</label>
+          <select id="budgetCategory" required></select>
+        </div>
+        <div class="form-group">
+          <label for="budgetLimit">Limite Máximo (R$)</label>
+          <div class="input-prefix">
+            <span>R$</span>
+            <input type="number" id="budgetLimit" step="0.01" min="1" placeholder="1000,00" required />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary closeModalBtn">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Salvar Orçamento</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL META -->
+  <div class="modal-backdrop hidden" id="goalModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-trophy"></i> Nova Meta Financeira</h3>
+        <button class="modal-close-btn closeModalBtn"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form id="goalForm">
+        <div class="form-group">
+          <label for="goalTitle">Nome da Meta</label>
+          <input type="text" id="goalTitle" placeholder="Ex: Reserva, Viagem" required />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="goalTarget">Objetivo (R$)</label>
+            <input type="number" id="goalTarget" step="0.01" min="1" placeholder="10000,00" required />
+          </div>
+          <div class="form-group">
+            <label for="goalCurrent">Já Guardado (R$)</label>
+            <input type="number" id="goalCurrent" step="0.01" min="0" placeholder="0,00" value="0" />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary closeModalBtn">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Criar Meta</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast hidden">
+    <i class="fa-solid fa-circle-check" id="toastIcon"></i>
+    <span id="toastMessage">Operação realizada com sucesso!</span>
+  </div>
+
+  <!-- JS Modules -->
+  <script src="js/store.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
