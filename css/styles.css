@@ -1,5 +1,5 @@
 /* ==========================================================================
-   FENIX WALLET - MAIN STYLESHEET (OTIMIZAÇÃO COMPLETA MOBILE & ZERO CORTES)
+   FENIX WALLET - MAIN STYLESHEET (MULTI-EXTRATOS, GASTOS FUTUROS, 10 AVATARES & SALDO PIX)
    ========================================================================== */
 
 :root {
@@ -231,6 +231,91 @@ html, body {
 .insights-content h4 { font-family: var(--font-heading); font-weight: 800; font-size: 0.98rem; color: var(--text-primary); }
 .insights-content p { font-size: 0.85rem; color: var(--text-secondary); }
 .insights-close-btn { position: absolute; top: 0.8rem; right: 0.8rem; background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1rem; }
+
+/* CARD SALDO EM CONTA / PIX */
+.pix-balance-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 1.4rem 1.6rem;
+  margin-bottom: 1.5rem;
+  box-shadow: var(--shadow-card);
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.pix-balance-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; bottom: 0;
+  width: 6px;
+  background: linear-gradient(180deg, #10b981 0%, #059669 100%);
+  border-top-left-radius: var(--radius-lg);
+  border-bottom-left-radius: var(--radius-lg);
+}
+
+.pix-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.85rem;
+  gap: 1rem;
+}
+
+.pix-title-group {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.pix-icon-badge {
+  width: 44px; height: 44px;
+  border-radius: var(--radius-md);
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.4rem;
+  flex-shrink: 0;
+}
+
+.pix-card-sub {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.pix-card-title {
+  font-family: var(--font-heading);
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.pix-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.pix-balance-amount {
+  font-family: var(--font-heading);
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.pix-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  flex-wrap: wrap;
+}
 
 /* CARROSSÉL DE CARTÕES */
 .cards-section-wrapper { margin-bottom: 2rem; width: 100%; max-width: 100%; box-sizing: border-box; }
@@ -534,7 +619,7 @@ html.dark .progress-bar-bg { background: rgba(255,255,255,0.08); }
   }
 
   .user-greeting-mobile .subtext {
-    display: none; /* Oculta subtexto para não estourar */
+    display: none;
   }
 
   .page-title {
@@ -563,10 +648,6 @@ html.dark .progress-bar-bg { background: rgba(255,255,255,0.08); }
     min-width: 78px;
   }
 
-  #switchAccountTopBtn {
-    display: none; /* Já existe no menu e perfil */
-  }
-
   .btn-icon-top {
     width: 36px;
     height: 36px;
@@ -592,7 +673,20 @@ html.dark .progress-bar-bg { background: rgba(255,255,255,0.08); }
 
 /* Otimização Específica para Telas Estreitas (smartphones <= 520px) */
 @media (max-width: 520px) {
-  /* Grid 2x2 Perfeito nos Atalhos Rápidos */
+  .pix-balance-card {
+    padding: 1.1rem 1.1rem 1.1rem 1.3rem;
+  }
+  .pix-balance-amount {
+    font-size: 1.75rem;
+  }
+  .pix-card-title {
+    font-size: 1rem;
+  }
+  .pix-meta-row {
+    gap: 0.75rem;
+    font-size: 0.8rem;
+  }
+
   .quick-actions-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: 0.65rem;
@@ -615,7 +709,6 @@ html.dark .progress-bar-bg { background: rgba(255,255,255,0.08); }
     white-space: nowrap;
   }
 
-  /* Cartões em Slider Dinâmico com 84vw de largura */
   .card-slide-item {
     flex: 0 0 84vw;
     max-width: 310px;
@@ -628,7 +721,6 @@ html.dark .progress-bar-bg { background: rgba(255,255,255,0.08); }
     font-size: 1.45rem;
   }
 
-  /* Grid 1 Coluna nos Cards de Estatísticas para não cortar texto */
   .stats-grid {
     grid-template-columns: 1fr;
     gap: 0.85rem;
@@ -643,7 +735,6 @@ html.dark .progress-bar-bg { background: rgba(255,255,255,0.08); }
     font-size: 1.6rem;
   }
 
-  /* Gastos Futuros */
   .upcoming-card-item {
     flex-direction: column;
     align-items: flex-start;

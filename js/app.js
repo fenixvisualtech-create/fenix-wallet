@@ -28,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initBankImportHandler();
   initUpcomingHandlers();
   initProfileModalTrigger();
+  initPixBalanceHandlers();
 
   let resizeTimeout;
   window.addEventListener('resize', () => {
@@ -764,3 +765,33 @@ function initPrivacyToggle() {
     });
   }
 }
+
+function initPixBalanceHandlers() {
+  const openBtn = document.getElementById('openPixModalBtn');
+  const modal = document.getElementById('pixBalanceModal');
+  const form = document.getElementById('pixBalanceForm');
+  const input = document.getElementById('pixInitialInput');
+
+  if (openBtn && modal) {
+    openBtn.addEventListener('click', () => {
+      if (input) {
+        input.value = window.store.getPixInitialBalance();
+      }
+      modal.classList.remove('hidden');
+    });
+  }
+
+  if (form) {
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const val = parseFloat(input.value);
+      if (!isNaN(val)) {
+        window.store.setPixInitialBalance(val);
+        modal.classList.add('hidden');
+        refreshAll();
+        window.ui.showToast('Saldo em Conta / PIX atualizado com sucesso!', 'success');
+      }
+    });
+  }
+}
+

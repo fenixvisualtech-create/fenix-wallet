@@ -1,5 +1,5 @@
 /**
- * Fenix Wallet UI - Módulo de Interface Avançado (Leitor de Extratos & 10 Avatares Fenix)
+ * Fenix Wallet UI - Módulo de Interface Avançado (Extratos, Gastos Futuros & Saldo PIX)
  */
 
 class FinanceUI {
@@ -76,6 +76,21 @@ class FinanceUI {
     const next = current === 'dark' ? 'light' : 'dark';
     this.applyTheme(next);
     this.showToast(`Tema ${next === 'dark' ? 'Noturno' : 'Claro'} ativado!`, 'info');
+  }
+
+  // --- RENDERS DE SALDO PIX / BANCO ---
+  renderPixBalanceCard() {
+    if (!window.store.getActiveAccountId()) return;
+
+    const pixSummary = window.store.getPixSummaryForMonth(this.currentYear, this.currentMonth);
+
+    const elPixBalance = document.getElementById('statPixBalance');
+    const elPixIncome = document.getElementById('statPixIncome');
+    const elPixExpense = document.getElementById('statPixExpense');
+
+    if (elPixBalance) elPixBalance.textContent = this.formatCurrency(pixSummary.currentBalance);
+    if (elPixIncome) elPixIncome.textContent = this.formatCurrency(pixSummary.monthIncome);
+    if (elPixExpense) elPixExpense.textContent = this.formatCurrency(pixSummary.monthExpense);
   }
 
   // --- DICAS FINANCEIRAS INTELIGENTES ---
@@ -413,19 +428,17 @@ class FinanceUI {
 
     this.updateMonthDisplay();
     this.renderActiveUserProfile();
+    this.renderPixBalanceCard();
     this.renderCreditCards();
     this.renderSmartInsights();
     this.renderUpcomingExpenses();
 
     const summary = window.store.getMonthlySummary(this.currentYear, this.currentMonth);
-    const totalBalance = window.store.getTotalBalanceAllTime();
 
-    const elBalance = document.getElementById('statBalance');
     const elIncome = document.getElementById('statIncome');
     const elExpense = document.getElementById('statExpense');
     const elSavingsRate = document.getElementById('statSavingsRate');
 
-    if (elBalance) elBalance.textContent = this.formatCurrency(totalBalance);
     if (elIncome) elIncome.textContent = this.formatCurrency(summary.income);
     if (elExpense) elExpense.textContent = this.formatCurrency(summary.expense);
     if (elSavingsRate) elSavingsRate.textContent = `${summary.savingsRate}%`;

@@ -1,5 +1,5 @@
 /**
- * Fenix Wallet Store - Extratos Bancários, Gastos Futuros & Insights
+ * Fenix Wallet Store - Extratos Bancários, Gastos Futuros, Insights & Saldo PIX
  */
 
 const STORAGE_KEYS = {
@@ -41,7 +41,6 @@ class FinanceStore {
     this.currentDate = new Date();
   }
 
-  // --- GERENCIAMENTO DE TEMA (DARK / LIGHT) ---
   getTheme() {
     return localStorage.getItem(STORAGE_KEYS.THEME) || 'dark';
   }
@@ -121,11 +120,55 @@ class FinanceStore {
     this.setActiveAccountId(null);
   }
 
-  // --- GERENCIAMENTO DE DADOS ISOLADOS ---
+  // --- SALDO INICIAL PIX / BANCO ---
   getAccountStorageKey(key) {
     const activeId = this.getActiveAccountId();
     if (!activeId) throw new Error('Nenhuma conta ativa!');
     return `${STORAGE_KEYS.DATA_PREFIX}${activeId}_${key}`;
+  }
+
+  getPixInitialBalance() {
+    const val = localStorage.getItem(this.getAccountStorageKey('pix_initial'));
+    return val !== null ? parseFloat(val) : 2500.00;
+  }
+
+  setPixInitialBalance(amount) {
+    localStorage.setItem(this.getAccountStorageKey('pix_initial'), parseFloat(amount) || 0);
+  }
+
+  getPixSummaryForMonth(year, month) {
+    const initial = this.getPixInitialBalance();
+    const all = this.getTransactions();
+
+    let totalPixIncomeAllTime = 0;
+    let totalPixExpenseAllTime = 0;
+    let monthPixIncome = 0;
+    let monthPixExpense = 0;
+
+    const monthStr = String(month + 1).padStart(2, '0');
+    const targetPrefix = `${year}-${monthStr}`;
+
+    all.forEach(t => {
+      // Considera lançamentos que NÃO usam cartão de crédito (Dinheiro / PIX)
+      if (!t.cardId || t.cardId === '') {
+        const val = parseFloat(t.amount);
+        if (t.type === 'receita') {
+          totalPixIncomeAllTime += val;
+          if (t.date.startsWith(targetPrefix)) monthPixIncome += val;
+        } else if (t.type === 'despesa') {
+          totalPixExpenseAllTime += val;
+          if (t.date.startsWith(targetPrefix)) monthPixExpense += val;
+        }
+      }
+    });
+
+    const currentPixBalance = initial + totalPixIncomeAllTime - totalPixExpenseAllTime;
+
+    return {
+      currentBalance: currentPixBalance,
+      monthIncome: monthPixIncome,
+      monthExpense: monthPixExpense
+    };
   }
 
   seedInitialDataForAccount(accountId) {
@@ -155,9 +198,9 @@ class FinanceStore {
     ];
 
     const sampleTransactions = [
-      { id: 'tx_1', description: 'Salário Mensal', amount: 6500.00, type: 'receita', category: 'salario', date: `${year}-${month}-01`, cardId: '' },
+      { id: 'tx_1', description: 'Salário Mensal via PIX', amount: 6500.00, type: 'receita', category: 'salario', date: `${year}-${month}-01`, cardId: '' },
       { id: 'tx_2', description: 'Supermercado Mensal', amount: 840.50, type: 'despesa', category: 'alimentacao', date: `${year}-${month}-03`, cardId: 'card_fenix_red' },
-      { id: 'tx_3', description: 'Aluguel & Contas', amount: 1900.00, type: 'despesa', category: 'moradia', date: `${year}-${month}-05`, cardId: '' },
+      { id: 'tx_3', description: 'Aluguel & Contas no Pix', amount: 1900.00, type: 'despesa', category: 'moradia', date: `${year}-${month}-05`, cardId: '' },
       { id: 'tx_4', description: 'Assinatura Netflix & Spotify', amount: 85.90, type: 'despesa', category: 'lazer', date: `${year}-${month}-08`, cardId: 'card_nubank' },
       { id: 'tx_5', description: 'Combustível & Uber', amount: 280.00, type: 'despesa', category: 'transporte', date: `${year}-${month}-12`, cardId: 'card_fenix_red' }
     ];
@@ -165,7 +208,7 @@ class FinanceStore {
     const sampleUpcoming = [
       { id: 'up_1', description: 'Fatura do Cartão Fenix Red', amount: 1120.50, category: 'moradia', dueDate: `${year}-${month}-15`, cardId: 'card_fenix_red', status: 'pending' },
       { id: 'up_2', description: 'Assinatura Claude Max', amount: 299.00, category: 'lazer', dueDate: `${year}-${month}-22`, cardId: 'card_nubank', status: 'pending' },
-      { id: 'up_3', description: 'Plano de Saúde', amount: 450.00, category: 'saude', dueDate: `${year}-${month}-28`, cardId: '', status: 'pending' }
+      { id: 'up_3', description: 'Plano de Saúde no Pix', amount: 450.00, category: 'saude', dueDate: `${year}-${month}-28`, cardId: '', status: 'pending' }
     ];
 
     const sampleBudgets = { alimentacao: 1200, moradia: 2200, lazer: 600 };
@@ -174,6 +217,7 @@ class FinanceStore {
       { id: 'g_2', title: 'Viagem de Fim de Ano', target: 5000, current: 3200 }
     ];
 
+    localStorage.setItem(`${STORAGE_KEYS.DATA_PREFIX}${accountId}_pix_initial`, '2500');
     localStorage.setItem(`${STORAGE_KEYS.DATA_PREFIX}${accountId}_cards`, JSON.stringify(sampleCards));
     localStorage.setItem(`${STORAGE_KEYS.DATA_PREFIX}${accountId}_transactions`, JSON.stringify(sampleTransactions));
     localStorage.setItem(`${STORAGE_KEYS.DATA_PREFIX}${accountId}_upcoming`, JSON.stringify(sampleUpcoming));
@@ -495,14 +539,8 @@ class FinanceStore {
   }
 
   getTotalBalanceAllTime() {
-    const all = this.getTransactions();
-    let balance = 0;
-    all.forEach(t => {
-      const val = parseFloat(t.amount);
-      if (t.type === 'receita') balance += val;
-      else balance -= val;
-    });
-    return balance;
+    const pix = this.getPixSummaryForMonth(this.currentDate.getFullYear(), this.currentDate.getMonth());
+    return pix.currentBalance;
   }
 
   getCategoryTotalsForMonth(year, month) {
@@ -520,6 +558,7 @@ class FinanceStore {
       version: '1.0',
       account: this.getActiveAccount(),
       exportedAt: new Date().toISOString(),
+      pixInitialBalance: this.getPixInitialBalance(),
       cards: this.getCards(),
       transactions: this.getTransactions(),
       upcoming: this.getUpcomingExpenses(),
@@ -532,6 +571,7 @@ class FinanceStore {
   importJSON(jsonString) {
     try {
       const parsed = JSON.parse(jsonString);
+      if (parsed.pixInitialBalance) this.setPixInitialBalance(parsed.pixInitialBalance);
       if (parsed.cards && Array.isArray(parsed.cards)) this.saveCards(parsed.cards);
       if (parsed.transactions && Array.isArray(parsed.transactions)) this.saveTransactions(parsed.transactions);
       if (parsed.upcoming && Array.isArray(parsed.upcoming)) this.saveUpcomingExpenses(parsed.upcoming);
@@ -560,6 +600,7 @@ class FinanceStore {
   clearAllData() {
     const activeId = this.getActiveAccountId();
     if (activeId) {
+      localStorage.removeItem(`${STORAGE_KEYS.DATA_PREFIX}${activeId}_pix_initial`);
       localStorage.removeItem(`${STORAGE_KEYS.DATA_PREFIX}${activeId}_cards`);
       localStorage.removeItem(`${STORAGE_KEYS.DATA_PREFIX}${activeId}_transactions`);
       localStorage.removeItem(`${STORAGE_KEYS.DATA_PREFIX}${activeId}_upcoming`);

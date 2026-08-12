@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Fenix Wallet - Controle Financeiro, Extratos & Gastos Futuros</title>
+  <title>Fenix Wallet - Controle Financeiro, Cartões & Saldo PIX</title>
   
   <!-- Meta PWA -->
-  <meta name="description" content="Fenix Wallet - Seu controle financeiro completo com leitor de extratos bancários (OFX/CSV) e gastos futuros." />
+  <meta name="description" content="Fenix Wallet - Seu controle financeiro completo com leitor de extratos bancários (OFX/CSV), saldo PIX e gastos futuros." />
   <meta name="theme-color" content="#0f172a" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -57,11 +57,11 @@
           </div>
 
           <div class="avatar-select-group">
-            <label>Escolha sua Foto de Perfil</label>
+            <label>Escolha seu Avatar Fênix</label>
             <div class="avatar-options" id="avatarOptionsContainer"></div>
           </div>
 
-          <div class="auth-actions">
+          <div class="auth-actions mt-3">
             <button type="button" id="btnCancelCreateAccount" class="btn btn-secondary hidden">Voltar</button>
             <button type="submit" class="btn btn-primary full-width">
               <i class="fa-solid fa-right-to-bracket"></i> Entrar no Fenix Wallet
@@ -91,7 +91,7 @@
       <nav class="sidebar-nav">
         <button class="nav-item active" data-tab="dashboard">
           <i class="fa-solid fa-house"></i>
-          <span>Início & Cartões</span>
+          <span>Início & Saldo PIX</span>
         </button>
         <button class="nav-item" data-tab="upcoming">
           <i class="fa-solid fa-calendar-check"></i>
@@ -117,7 +117,6 @@
           <span>Instalar o App</span>
         </button>
 
-        <!-- CLICAR NO USER PILL ABRE O MODAL DE PERFIL -->
         <div class="user-pill-container">
           <div class="user-pill openProfileModalBtn" id="activeUserPill" title="Clique para editar foto ou perfil">
             <img src="" id="userAvatarImg" alt="Avatar" class="avatar-img" />
@@ -161,10 +160,6 @@
             <i class="fa-solid fa-moon" id="themeIcon"></i>
           </button>
 
-          <button id="switchAccountTopBtn" class="btn-icon-top" title="Trocar de Conta">
-            <i class="fa-solid fa-users-viewfinder"></i>
-          </button>
-
           <button id="quickAddBtn" class="btn-circle-add openAddModalBtn" title="Nova Transação">
             <i class="fa-solid fa-plus"></i>
           </button>
@@ -174,7 +169,7 @@
       <!-- Dynamic Views Container -->
       <div class="content-body">
 
-        <!-- TAB 1: DASHBOARD & CARTÕES -->
+        <!-- TAB 1: DASHBOARD, SALDO PIX & CARTÕES -->
         <section id="tab-dashboard" class="tab-view active">
           
           <!-- BANNER DE DICAS FINANCEIRAS E INSIGHTS INTELIGENTES -->
@@ -185,6 +180,34 @@
               <p id="smartInsightText">Calculando análise das suas despesas para este mês...</p>
             </div>
             <button class="insights-close-btn" onclick="this.parentElement.style.display='none'"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+
+          <!-- CARD PRINCIPAL DE SALDO EM CONTA CORRENTE / PIX -->
+          <div class="pix-balance-card">
+            <div class="pix-card-header">
+              <div class="pix-title-group">
+                <div class="pix-icon-badge"><i class="fa-brands fa-pix"></i></div>
+                <div>
+                  <span class="pix-card-sub">Conta Corrente / Banco</span>
+                  <h3 class="pix-card-title">Saldo Disponível no PIX</h3>
+                </div>
+              </div>
+              <div style="display:flex; align-items:center; gap:0.5rem;">
+                <button class="btn-icon-top" id="togglePrivacyBtn" title="Ocultar/Mostrar Saldo">
+                  <i class="fa-solid fa-eye" id="privacyIcon"></i>
+                </button>
+                <button class="btn btn-secondary btn-sm" id="openPixModalBtn">
+                  <i class="fa-solid fa-pen-to-square"></i> Ajustar Saldo
+                </button>
+              </div>
+            </div>
+            <div class="pix-card-body">
+              <div class="pix-balance-amount" id="statPixBalance">R$ 0,00</div>
+              <div class="pix-meta-row">
+                <span><i class="fa-solid fa-arrow-down text-emerald"></i> Entradas PIX: <strong id="statPixIncome" class="text-emerald">R$ 0,00</strong></span>
+                <span><i class="fa-solid fa-arrow-up text-rose"></i> Saídas PIX: <strong id="statPixExpense" class="text-rose">R$ 0,00</strong></span>
+              </div>
+            </div>
           </div>
 
           <!-- CARROSSÉL DE CARTÕES DE CRÉDITO -->
@@ -322,9 +345,7 @@
               <h3><i class="fa-solid fa-calendar-check"></i> Próximos Vencimentos</h3>
               <span class="card-badge">Pendentes</span>
             </div>
-            <div id="upcomingExpensesList" class="upcoming-container">
-              <!-- JS Inject Upcoming Items -->
-            </div>
+            <div id="upcomingExpensesList" class="upcoming-container"></div>
           </div>
         </section>
 
@@ -452,11 +473,11 @@
                   </div>
 
                   <div class="avatar-select-group mt-3">
-                    <label>Ou Escolha da Galeria de Avatares:</label>
+                    <label>Ou Escolha da Galeria de Avatares Fênix:</label>
                     <div class="avatar-options" id="editAvatarOptionsContainer"></div>
                   </div>
 
-                  <div class="form-group">
+                  <div class="form-group mt-3">
                     <label for="profileNameInput">Seu Nome</label>
                     <input type="text" id="profileNameInput" required />
                   </div>
@@ -555,6 +576,30 @@
         <span>Perfil</span>
       </button>
     </nav>
+  </div>
+
+  <!-- MODAL AJUSTAR SALDO PIX -->
+  <div class="modal-backdrop hidden" id="pixBalanceModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3><i class="fa-brands fa-pix" style="color:#10b981;"></i> Ajustar Saldo em Conta / PIX</h3>
+        <button class="modal-close-btn closeModalBtn"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form id="pixBalanceForm">
+        <div class="form-group">
+          <label for="pixInitialInput">Saldo Atual da Conta Bancária (R$)</label>
+          <p class="text-muted" style="font-size:0.8rem; margin-bottom:0.4rem;">Digite o valor exato disponível na sua conta bancária agora.</p>
+          <div class="input-prefix">
+            <span>R$</span>
+            <input type="number" id="pixInitialInput" step="0.01" placeholder="2500,00" required />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary closeModalBtn">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Salvar Saldo PIX</button>
+        </div>
+      </form>
+    </div>
   </div>
 
   <!-- MODAL TRANSAÇÃO -->
