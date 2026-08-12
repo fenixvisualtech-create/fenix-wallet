@@ -151,7 +151,7 @@
           </div>
 
           <!-- Botão Importar Extratos Bancários (OFX/CSV) -->
-          <button id="openBankImportTopBtn" class="btn-icon-top" title="Importar Extrato Bancário (OFX/CSV)">
+          <button id="openBankImportTopBtn" class="btn-icon-top mobile-hide-icon" title="Importar Extrato Bancário (OFX/CSV)">
             <i class="fa-solid fa-file-import"></i>
           </button>
 
@@ -187,12 +187,12 @@
             <div class="pix-card-header">
               <div class="pix-title-group">
                 <div class="pix-icon-badge"><i class="fa-brands fa-pix"></i></div>
-                <div>
+                <div class="pix-title-text">
                   <span class="pix-card-sub">Conta Corrente / Banco</span>
                   <h3 class="pix-card-title">Saldo Disponível no PIX</h3>
                 </div>
               </div>
-              <div style="display:flex; align-items:center; gap:0.5rem;">
+              <div class="pix-header-actions">
                 <button class="btn-icon-top" id="togglePrivacyBtn" title="Ocultar/Mostrar Saldo">
                   <i class="fa-solid fa-eye" id="privacyIcon"></i>
                 </button>
@@ -514,6 +514,13 @@
                     <i class="fa-solid fa-moon"></i> Alternar Tema
                   </button>
                 </div>
+
+                <hr class="divider" />
+                <h4>Atualização do Aplicativo</h4>
+                <p class="text-muted" style="font-size:0.8rem;">Clique para baixar a versão mais recente e limpar o cache antigo.</p>
+                <button id="forceUpdateBtn" class="btn btn-primary full-width">
+                  <i class="fa-solid fa-arrows-rotate"></i> Atualizar App (Limpar Cache)
+                </button>
 
                 <hr class="divider" />
                 <h4>Importar Extratos do Banco (OFX / CSV)</h4>
