@@ -29,6 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initUpcomingHandlers();
   initProfileModalTrigger();
   initPixBalanceHandlers();
+  initForceUpdateHandler();
 
   let resizeTimeout;
   window.addEventListener('resize', () => {
@@ -140,14 +141,38 @@ function initUpcomingHandlers() {
   const modal = document.getElementById('upcomingModal');
   const openBtn = document.getElementById('openUpcomingModalBtn');
   const form = document.getElementById('upcomingForm');
+  const billTypeSelect = document.getElementById('upBillType');
+  const instGroup = document.getElementById('upInstallmentsGroup');
+
+  if (billTypeSelect && instGroup) {
+    billTypeSelect.addEventListener('change', () => {
+      if (billTypeSelect.value === 'financing') {
+        instGroup.classList.remove('hidden');
+      } else {
+        instGroup.classList.add('hidden');
+      }
+    });
+  }
 
   if (openBtn) {
     openBtn.addEventListener('click', () => {
       if (form) form.reset();
+      if (instGroup) instGroup.classList.add('hidden');
       document.getElementById('upDueDate').value = new Date().toISOString().split('T')[0];
       if (modal) modal.classList.remove('hidden');
     });
   }
+
+  // Atalhos Rápidos da Tela Inicial (Internet, Luz, Água, Empréstimo, Financiamento)
+  document.querySelectorAll('.quick-bill-card[data-bill-preset]').forEach(card => {
+    card.addEventListener('click', () => {
+      const preset = card.getAttribute('data-bill-preset');
+      const targetBtn = document.querySelector(`.nav-item[data-tab="upcoming"], .bottom-nav-item[data-tab="upcoming"]`);
+      if (targetBtn) targetBtn.click();
+
+      window.ui.showToast(`Visualizando gastos futuros de ${preset.toUpperCase()}`, 'info');
+    });
+  });
 
   if (form) {
     form.addEventListener('submit', (e) => {
@@ -156,16 +181,30 @@ function initUpcomingHandlers() {
       const amount = parseFloat(document.getElementById('upAmount').value);
       const category = document.getElementById('upCategory').value;
       const dueDate = document.getElementById('upDueDate').value;
+      const billType = document.getElementById('upBillType').value;
+      const remainingInstallments = parseInt(document.getElementById('upRemainingInstallments').value) || 12;
 
       if (!description || !amount || !dueDate) {
         window.ui.showToast('Preencha todos os campos do gasto futuro!', 'error');
         return;
       }
 
-      window.store.addUpcomingExpense({ description, amount, category, dueDate });
-      window.ui.showToast('Gasto futuro agendado!', 'success');
+      window.store.addUpcomingExpense({
+        description,
+        amount,
+        category,
+        dueDate,
+        billType,
+        remainingInstallments,
+        totalInstallments: remainingInstallments
+      });
+
+      window.ui.showToast('Gasto futuro agendado com sucesso!', 'success');
       if (modal) modal.classList.add('hidden');
       refreshAll();
+
+      const ach = window.store.checkFirstAchievement('first_upcoming');
+      if (ach) window.ui.showAchievementModal(ach);
     });
   }
 
@@ -176,9 +215,15 @@ function initUpcomingHandlers() {
 
     if (payBtn) {
       const id = payBtn.getAttribute('data-id');
-      const success = window.store.markUpcomingPaid(id);
-      if (success) {
-        window.ui.showToast('Conta confirmada e despesa lançada no seu saldo!', 'success');
+      const res = window.store.markUpcomingPaid(id);
+      if (res) {
+        if (res.status === 'quitado') {
+          window.ui.showToast(`🎉 PARABÉNS! ${res.description} foi 100% QUITADO com sucesso!`, 'success');
+        } else if (res.status === 'paid_installment') {
+          window.ui.showToast(`Pagamento efetuado! Restam ${res.remaining} parcelas.`, 'success');
+        } else {
+          window.ui.showToast(`Conta de ${res.description} paga! Próximo mês agendado.`, 'success');
+        }
         refreshAll();
       }
     }
@@ -264,9 +309,26 @@ function initCardHandlers() {
   });
 
   if (cardForm) {
+    const cardBankSelect = document.getElementById('cardBank');
+    const cardColorSelect = document.getElementById('cardColor');
+
+    if (cardBankSelect && cardColorSelect) {
+      cardBankSelect.addEventListener('change', () => {
+        const bank = cardBankSelect.value;
+        if (bank.includes('Nubank')) cardColorSelect.value = 'linear-gradient(135deg, #a855f7 0%, #7e22ce 50%, #581c87 100%)';
+        else if (bank.includes('Inter') || bank.includes('BMG')) cardColorSelect.value = 'linear-gradient(135deg, #f97316 0%, #ea580c 50%, #9a3412 100%)';
+        else if (bank.includes('Neon') || bank.includes('Pan')) cardColorSelect.value = 'linear-gradient(135deg, #ec4899 0%, #be185d 50%, #831843 100%)';
+        else if (bank.includes('Itaú') || bank.includes('Bradesco') || bank.includes('Caixa')) cardColorSelect.value = 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 50%, #1e3a8a 100%)';
+        else if (bank.includes('PicPay') || bank.includes('Sicoob') || bank.includes('Sicredi')) cardColorSelect.value = 'linear-gradient(135deg, #10b981 0%, #059669 50%, #064e3b 100%)';
+        else if (bank.includes('Banco do Brasil') || bank.includes('Will') || bank.includes('Nomad')) cardColorSelect.value = 'linear-gradient(135deg, #eab308 0%, #ca8a04 50%, #854d0e 100%)';
+        else if (bank.includes('C6') || bank.includes('BTG') || bank.includes('XP')) cardColorSelect.value = 'linear-gradient(135deg, #334155 0%, #0f172a 50%, #020617 100%)';
+      });
+    }
+
     cardForm.addEventListener('submit', (e) => {
       e.preventDefault();
       const name = document.getElementById('cardName').value;
+      const bank = document.getElementById('cardBank') ? document.getElementById('cardBank').value : 'Outro';
       const brand = document.getElementById('cardBrand').value;
       const digits = document.getElementById('cardLastDigits').value;
       const limit = parseFloat(document.getElementById('cardLimit').value);
@@ -280,6 +342,7 @@ function initCardHandlers() {
 
       const newCard = {
         name,
+        bank,
         brand,
         number: `•••• ${digits || '5678'}`,
         limit,
@@ -288,9 +351,12 @@ function initCardHandlers() {
       };
 
       window.store.addCard(newCard);
-      window.ui.showToast('Novo cartão adicionado!', 'success');
+      window.ui.showToast(`Novo cartão ${bank} (${brand}) adicionado!`, 'success');
       cardModal.classList.add('hidden');
       refreshAll();
+
+      const ach = window.store.checkFirstAchievement('first_card');
+      if (ach) window.ui.showAchievementModal(ach);
     });
   }
 
@@ -307,22 +373,111 @@ function initCardHandlers() {
   });
 }
 
+function parseJwt(token) {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+    return JSON.parse(jsonPayload);
+  } catch (e) {
+    return null;
+  }
+}
+
+function initGoogleNativeIdentity() {
+  try {
+    if (window.google && window.google.accounts && window.google.accounts.id) {
+      window.google.accounts.id.initialize({
+        client_id: "958043682976-fenixwallet.apps.googleusercontent.com",
+        auto_select: false,
+        callback: (response) => {
+          if (response && response.credential) {
+            const payload = parseJwt(response.credential);
+            if (payload && payload.email) {
+              const email = payload.email;
+              const name = payload.name || payload.given_name || email.split('@')[0];
+              const remember = document.getElementById('googleRememberMe')?.checked ?? true;
+
+              window.store.setRememberMe(remember);
+              const acc = window.store.loginWithGoogle(email, name);
+
+              window.ui.showToast(`Login efetuado com sua conta do Google (${email})!`, 'success');
+              document.getElementById('googleAuthModal')?.classList.add('hidden');
+              document.getElementById('authOverlay')?.classList.add('hidden');
+              refreshAll();
+              initTutorialHandlers(false);
+            }
+          }
+        }
+      });
+    }
+  } catch (e) {
+    console.warn('Google GIS SDK não carregou ou ambiente offline.');
+  }
+}
+
 function initAuthSystem() {
   window.ui.renderAuthOverlay();
+  initGoogleNativeIdentity();
 
   const overlay = document.getElementById('authOverlay');
+  const loginView = document.getElementById('accountLoginView');
   const selectView = document.getElementById('accountSelectView');
   const createView = document.getElementById('accountCreateView');
 
-  const btnGoToCreate = document.getElementById('btnGoToCreateAccount');
-  const btnCancelCreate = document.getElementById('btnCancelCreateAccount');
+  const googleModal = document.getElementById('googleAuthModal');
+  const btnGoogleLogin = document.getElementById('btnGoogleLogin');
+  const googleForm = document.getElementById('googleQuickLoginForm');
+
+  const loginForm = document.getElementById('loginAccountForm');
   const createForm = document.getElementById('createAccountForm');
+
+  const btnGoToCreateFromLogin = document.getElementById('btnGoToCreateFromLogin');
+  const btnGoToSelectFromLogin = document.getElementById('btnGoToSelectFromLogin');
+  const btnGoToCreate = document.getElementById('btnGoToCreateAccount');
+  const btnBackToLoginFromSelect = document.getElementById('btnBackToLoginFromSelect');
+  const btnCancelCreate = document.getElementById('btnCancelCreateAccount');
+
+  // Verifica se o usuário optou por manter logado e tem conta ativa
+  const isRemember = window.store.getRememberMe();
+  const activeAcc = window.store.getActiveAccount();
+  if (isRemember && activeAcc) {
+    overlay.classList.add('hidden');
+  }
+
+  // Navegação entre views de Auth
+  if (btnGoToCreateFromLogin) {
+    btnGoToCreateFromLogin.addEventListener('click', () => {
+      loginView.classList.add('hidden');
+      selectView.classList.add('hidden');
+      createView.classList.remove('hidden');
+      window.ui.renderAvatarOptions();
+    });
+  }
+
+  if (btnGoToSelectFromLogin) {
+    btnGoToSelectFromLogin.addEventListener('click', () => {
+      loginView.classList.add('hidden');
+      createView.classList.add('hidden');
+      selectView.classList.remove('hidden');
+    });
+  }
+
+  if (btnBackToLoginFromSelect) {
+    btnBackToLoginFromSelect.addEventListener('click', () => {
+      selectView.classList.add('hidden');
+      createView.classList.add('hidden');
+      loginView.classList.remove('hidden');
+    });
+  }
 
   if (btnGoToCreate) {
     btnGoToCreate.addEventListener('click', () => {
       selectView.classList.add('hidden');
+      loginView.classList.add('hidden');
       createView.classList.remove('hidden');
-      if (btnCancelCreate) btnCancelCreate.classList.remove('hidden');
       window.ui.renderAvatarOptions();
     });
   }
@@ -330,15 +485,143 @@ function initAuthSystem() {
   if (btnCancelCreate) {
     btnCancelCreate.addEventListener('click', () => {
       createView.classList.add('hidden');
-      selectView.classList.remove('hidden');
+      selectView.classList.add('hidden');
+      loginView.classList.remove('hidden');
     });
   }
 
+  // Trigger do Botão de Login do Google (Prompt Nativo do Dispositivo + Pop-up de Contas)
+  if (btnGoogleLogin) {
+    btnGoogleLogin.addEventListener('click', () => {
+      // 1. Tenta acionar a janela/prompt nativo do Google (Google One-Tap) do dispositivo
+      if (window.google && window.google.accounts && window.google.accounts.id) {
+        window.google.accounts.id.prompt((notification) => {
+          if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+            openGoogleChooserPopup();
+          }
+        });
+      } else {
+        openGoogleChooserPopup();
+      }
+    });
+  }
+
+  function openGoogleChooserPopup() {
+    const w = 480;
+    const h = 620;
+    const left = Math.max(0, Math.round((window.screen.width / 2) - (w / 2)));
+    const top = Math.max(0, Math.round((window.screen.height / 2) - (h / 2)));
+
+    try {
+      const popup = window.open(
+        'https://accounts.google.com/AccountChooser?continue=https://accounts.google.com/',
+        'GoogleAccountChooserPopup',
+        `width=${w},height=${h},top=${top},left=${left},scrollbars=yes,status=no,resizable=yes`
+      );
+
+      if (!popup && googleModal) {
+        googleModal.classList.remove('hidden');
+      }
+    } catch (err) {
+      if (googleModal) googleModal.classList.remove('hidden');
+    }
+  }
+
+  // Listener para mensagens vindas da Janela Pop-up do Google!
+  if (!window.googleMessageListenerAdded) {
+    window.googleMessageListenerAdded = true;
+    window.addEventListener('message', (event) => {
+      if (event.data && event.data.type === 'GOOGLE_LOGIN') {
+        const { email, name } = event.data;
+        const remember = document.getElementById('googleRememberMe')?.checked ?? true;
+
+        window.store.setRememberMe(remember);
+        const acc = window.store.loginWithGoogle(email, name);
+
+        window.ui.showToast(`Login efetuado via Google! Bem-vindo, ${acc.name}!`, 'success');
+        if (googleModal) googleModal.classList.add('hidden');
+        overlay.classList.add('hidden');
+        refreshAll();
+        initTutorialHandlers(false);
+      }
+    });
+  }
+
+  // Clique em uma conta da lista do Google (One-Tap Login)
+  document.querySelectorAll('.google-account-item-btn[data-google-email]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const email = btn.getAttribute('data-google-email');
+      const name = btn.getAttribute('data-google-name');
+      const remember = document.getElementById('googleRememberMe')?.checked ?? true;
+
+      window.store.setRememberMe(remember);
+      const acc = window.store.loginWithGoogle(email, name);
+
+      window.ui.showToast(`Login efetuado via Google! Bem-vindo, ${acc.name}!`, 'success');
+      if (googleModal) googleModal.classList.add('hidden');
+      overlay.classList.add('hidden');
+      refreshAll();
+      initTutorialHandlers(false);
+    });
+  });
+
+  // Botão Usar outra conta do Google
+  const btnCustomGoogle = document.getElementById('btnCustomGoogleAccount');
+  const googleCustomForm = document.getElementById('googleCustomAccountForm');
+  if (btnCustomGoogle && googleCustomForm) {
+    btnCustomGoogle.addEventListener('click', () => {
+      googleCustomForm.classList.remove('hidden');
+    });
+  }
+
+  if (googleCustomForm) {
+    googleCustomForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const email = document.getElementById('googleCustomEmail').value;
+      const name = document.getElementById('googleCustomName').value;
+      const remember = document.getElementById('googleRememberMe')?.checked ?? true;
+
+      window.store.setRememberMe(remember);
+      const acc = window.store.loginWithGoogle(email, name);
+
+      window.ui.showToast(`Conectado com Google (${email})!`, 'success');
+      if (googleModal) googleModal.classList.add('hidden');
+      overlay.classList.add('hidden');
+      refreshAll();
+      initTutorialHandlers(false);
+    });
+  }
+
+  // Formulário de Login por E-mail + Senha
+  if (loginForm) {
+    loginForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const email = document.getElementById('loginEmail').value;
+      const pass = document.getElementById('loginPassword').value;
+      const remember = document.getElementById('loginRememberMe').checked;
+
+      window.store.setRememberMe(remember);
+      const res = window.store.loginWithEmail(email, pass);
+
+      if (res.success) {
+        window.ui.showToast(`Login realizado com sucesso! Olá, ${res.account.name}!`, 'success');
+        overlay.classList.add('hidden');
+        refreshAll();
+        initTutorialHandlers(false);
+      } else {
+        window.ui.showToast(res.message, 'error');
+      }
+    });
+  }
+
+  // Formulário de Criar Nova Conta
   if (createForm) {
     createForm.addEventListener('submit', (e) => {
       e.preventDefault();
       const name = document.getElementById('regName').value;
       const email = document.getElementById('regEmail').value;
+      const pass = document.getElementById('regPassword').value;
+      const remember = document.getElementById('regRememberMe').checked;
       const avatar = window.ui.selectedRegisterAvatar;
 
       if (!name || !email) {
@@ -346,24 +629,29 @@ function initAuthSystem() {
         return;
       }
 
-      const newAccount = window.store.createAccount(name, email, avatar);
-      window.ui.showToast(`Bem-vindo ao Fenix Wallet, ${newAccount.name}!`, 'success');
+      window.store.setRememberMe(remember);
+      const newAccount = window.store.createAccount(name, email, avatar, pass);
+      window.ui.showToast(`Conta criada com sucesso! Bem-vindo, ${newAccount.name}!`, 'success');
       
       overlay.classList.add('hidden');
       createForm.reset();
       refreshAll();
+
+      // Dispara o Tutorial Interativo para novas contas
+      initTutorialHandlers(true);
     });
   }
 
   document.addEventListener('click', (e) => {
     const cardBtn = e.target.closest('.select-account-btn');
     if (cardBtn) {
-      const accId = cardBtn.getAttribute('data-id');
-      const acc = window.store.switchAccount(accId);
-      if (acc) {
-        window.ui.showToast(`Conectado como ${acc.name}`, 'success');
+      const id = cardBtn.getAttribute('data-id');
+      const account = window.store.switchAccount(id);
+      if (account) {
+        window.ui.showToast(`Conectado como ${account.name}`, 'success');
         overlay.classList.add('hidden');
         refreshAll();
+        initTutorialHandlers(false);
       }
     }
   });
@@ -383,6 +671,71 @@ function initAuthSystem() {
       window.ui.showToast('Você desconectou do Fenix Wallet.', 'info');
       window.ui.renderAuthOverlay();
     });
+  }
+}
+
+function initTutorialHandlers(forceOpen = false) {
+  const modal = document.getElementById('welcomeTutorialModal');
+  const btnNext = document.getElementById('btnNextTutorialStep');
+  const btnPrev = document.getElementById('btnPrevTutorialStep');
+  const dots = document.querySelectorAll('.tutorial-progress-dots .dot');
+
+  if (!modal) return;
+
+  const ach = window.store.getAchievements();
+  if (forceOpen || !ach.tour_done) {
+    modal.classList.remove('hidden');
+  }
+
+  let currentStep = 1;
+
+  function updateStepView() {
+    for (let i = 1; i <= 5; i++) {
+      const stepEl = document.getElementById(`step${i}`);
+      if (stepEl) {
+        if (i === currentStep) stepEl.classList.remove('hidden');
+        else stepEl.classList.add('hidden');
+      }
+    }
+
+    dots.forEach((dot, index) => {
+      if (index + 1 === currentStep) dot.classList.add('active');
+      else dot.classList.remove('active');
+    });
+
+    if (btnPrev) btnPrev.disabled = (currentStep === 1);
+
+    if (btnNext) {
+      if (currentStep === 5) {
+        btnNext.innerHTML = 'Começar Agora! <i class="fa-solid fa-rocket"></i>';
+      } else {
+        btnNext.innerHTML = 'Próximo <i class="fa-solid fa-arrow-right"></i>';
+      }
+    }
+  }
+
+  if (btnNext) {
+    btnNext.onclick = () => {
+      if (currentStep < 5) {
+        currentStep++;
+        updateStepView();
+      } else {
+        modal.classList.add('hidden');
+        const currAch = window.store.getAchievements();
+        currAch.tour_done = true;
+        window.store.saveAchievements(currAch);
+        window.ui.showToast('Tutorial concluído! Bom controle financeiro!', 'success');
+      }
+    };
+  }
+
+  if (btnPrev) {
+    btnPrev.onclick = () => {
+      if (currentStep > 1) {
+        currentStep--;
+        updateStepView();
+      }
+    };
   }
 }
 
@@ -479,10 +832,47 @@ function initModalHandlers() {
   });
 
   const typeBtns = document.querySelectorAll('.type-btn');
+  const txCardSelect = document.getElementById('txCard');
+  const txAmountInput = document.getElementById('txAmount');
+  const txInstallmentsGroup = document.getElementById('txInstallmentsGroup');
+  const txInstallmentsSelect = document.getElementById('txInstallments');
+  const txInstallmentDisplay = document.getElementById('txInstallmentAmountDisplay');
+
+  function updateInstallmentsVisibility() {
+    const cardId = txCardSelect ? txCardSelect.value : '';
+    const type = document.querySelector('input[name="txType"]:checked')?.value || 'despesa';
+
+    if (cardId && type === 'despesa') {
+      if (txInstallmentsGroup) txInstallmentsGroup.classList.remove('hidden');
+      calcInstallmentDisplay();
+    } else {
+      if (txInstallmentsGroup) txInstallmentsGroup.classList.add('hidden');
+      if (txInstallmentsSelect) txInstallmentsSelect.value = '1';
+    }
+  }
+
+  function calcInstallmentDisplay() {
+    const amount = parseFloat(txAmountInput ? txAmountInput.value : 0) || 0;
+    const count = parseInt(txInstallmentsSelect ? txInstallmentsSelect.value : 1) || 1;
+    if (amount > 0 && count > 1) {
+      const perMonth = amount / count;
+      if (txInstallmentDisplay) {
+        txInstallmentDisplay.textContent = `R$ ${perMonth.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} /mês`;
+      }
+    } else {
+      if (txInstallmentDisplay) txInstallmentDisplay.textContent = `R$ ${amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (À vista)`;
+    }
+  }
+
+  if (txCardSelect) txCardSelect.addEventListener('change', updateInstallmentsVisibility);
+  if (txAmountInput) txAmountInput.addEventListener('input', calcInstallmentDisplay);
+  if (txInstallmentsSelect) txInstallmentsSelect.addEventListener('change', calcInstallmentDisplay);
+
   typeBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       typeBtns.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
+      updateInstallmentsVisibility();
     });
   });
 
@@ -497,13 +887,14 @@ function initModalHandlers() {
       const category = document.getElementById('txCategory').value;
       const cardId = document.getElementById('txCard').value;
       const date = document.getElementById('txDate').value;
+      const installments = parseInt(document.getElementById('txInstallments').value) || 1;
 
       if (!amount || !description || !date) {
         window.ui.showToast('Preencha todos os campos obrigatórios!', 'error');
         return;
       }
 
-      const txData = { description, amount, type, category, cardId, date };
+      const txData = { description, amount, type, category, cardId, date, installments };
 
       if (txId) {
         window.store.updateTransaction(txId, txData);
@@ -511,6 +902,8 @@ function initModalHandlers() {
       } else {
         window.store.addTransaction(txData);
         window.ui.showToast('Nova transação adicionada!', 'success');
+        const ach = window.store.checkFirstAchievement('first_tx');
+        if (ach) window.ui.showAchievementModal(ach);
       }
 
       txModal.classList.add('hidden');
@@ -525,7 +918,8 @@ function initModalHandlers() {
 
     if (editBtn) {
       const id = editBtn.getAttribute('data-id');
-      const tx = window.store.getTransactions().find(t => t.id === id);
+      const realId = id.includes('_inst_') ? id.split('_inst_')[0] : id;
+      const tx = window.store.getTransactions().find(t => t.id === realId);
       if (tx) {
         document.getElementById('txId').value = tx.id;
         document.getElementById('txAmount').value = tx.amount;
@@ -533,6 +927,9 @@ function initModalHandlers() {
         document.getElementById('txCategory').value = tx.category;
         if (document.getElementById('txCard')) document.getElementById('txCard').value = tx.cardId || '';
         document.getElementById('txDate').value = tx.date;
+        if (document.getElementById('txInstallments')) {
+          document.getElementById('txInstallments').value = tx.installments || 1;
+        }
 
         const typeRadio = document.querySelector(`input[name="txType"][value="${tx.type}"]`);
         if (typeRadio) {
@@ -541,6 +938,7 @@ function initModalHandlers() {
           typeRadio.closest('.type-btn').classList.add('active');
         }
 
+        updateInstallmentsVisibility();
         document.getElementById('transactionModalTitle').innerHTML = '<i class="fa-solid fa-pen"></i> Editar Transação';
         txModal.classList.remove('hidden');
       }
@@ -612,6 +1010,9 @@ function initModalHandlers() {
         window.ui.showToast('Meta criada!', 'success');
         goalModal.classList.add('hidden');
         refreshAll();
+
+        const ach = window.store.checkFirstAchievement('first_goal');
+        if (ach) window.ui.showAchievementModal(ach);
       }
     });
   }
@@ -794,4 +1195,31 @@ function initPixBalanceHandlers() {
     });
   }
 }
+
+function initForceUpdateHandler() {
+  const btn = document.getElementById('forceUpdateBtn');
+  if (btn) {
+    btn.addEventListener('click', async () => {
+      window.ui.showToast('Limpando cache e atualizando...', 'info');
+      try {
+        if ('caches' in window) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map(k => caches.delete(k)));
+        }
+        if ('serviceWorker' in navigator) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          for (let r of regs) {
+            await r.unregister();
+          }
+        }
+      } catch (err) {
+        console.error(err);
+      }
+      setTimeout(() => {
+        window.location.reload(true);
+      }, 500);
+    });
+  }
+}
+
 

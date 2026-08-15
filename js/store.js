@@ -1,5 +1,5 @@
 /**
- * Fenix Wallet Store - Extratos Bancários, Gastos Futuros, Insights & Saldo PIX
+ * Fenix Wallet Store - Extratos Bancários, Gastos Futuros, Insights, Saldo PIX & Parcelamento de Cartão
  */
 
 const STORAGE_KEYS = {
@@ -51,8 +51,12 @@ class FinanceStore {
 
   // --- CONTAS E AUTENTICAÇÃO ---
   getAccounts() {
-    const data = localStorage.getItem(STORAGE_KEYS.ACCOUNTS);
-    return data ? JSON.parse(data) : [];
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.ACCOUNTS);
+      return data ? JSON.parse(data) : [];
+    } catch (e) {
+      return [];
+    }
   }
 
   saveAccounts(accounts) {
@@ -77,12 +81,59 @@ class FinanceStore {
     return this.getAccounts().find(a => a.id === activeId) || null;
   }
 
-  createAccount(name, email, avatar) {
+  getRememberMe() {
+    return localStorage.getItem('fenix_remember_me_v1') !== 'false';
+  }
+
+  setRememberMe(remember) {
+    localStorage.setItem('fenix_remember_me_v1', remember ? 'true' : 'false');
+  }
+
+  loginWithEmail(email, password) {
+    const cleanEmail = email.trim().toLowerCase();
     const accounts = this.getAccounts();
+    const account = accounts.find(a => a.email === cleanEmail);
+
+    if (!account) {
+      return { success: false, message: 'Conta não encontrada. Clique em "Criar Nova Conta".' };
+    }
+
+    if (account.password && account.password !== 'google_oauth' && account.password !== password) {
+      return { success: false, message: 'Senha incorreta! Tente novamente.' };
+    }
+
+    this.setActiveAccountId(account.id);
+    return { success: true, account };
+  }
+
+  loginWithGoogle(email, name) {
+    const cleanEmail = email.trim().toLowerCase();
+    const accounts = this.getAccounts();
+    let account = accounts.find(a => a.email === cleanEmail);
+
+    if (!account) {
+      account = this.createAccount(name || 'Usuário Google', cleanEmail, AVATAR_PRESETS[0].url, 'google_oauth');
+    } else {
+      this.setActiveAccountId(account.id);
+    }
+    return account;
+  }
+
+  createAccount(name, email, avatar, password = '') {
+    const accounts = this.getAccounts();
+    const cleanEmail = email.trim().toLowerCase();
+
+    const existing = accounts.find(a => a.email === cleanEmail);
+    if (existing) {
+      this.setActiveAccountId(existing.id);
+      return existing;
+    }
+
     const newAccount = {
       id: 'acc_' + Date.now(),
       name: name.trim(),
-      email: email.trim().toLowerCase(),
+      email: cleanEmail,
+      password: password || '123456',
       avatar: avatar || AVATAR_PRESETS[0].url,
       createdAt: new Date().toISOString()
     };
@@ -120,20 +171,25 @@ class FinanceStore {
     this.setActiveAccountId(null);
   }
 
-  // --- SALDO INICIAL PIX / BANCO ---
+  // --- ARMAZENAMENTO SEGURO POR CONTA ---
   getAccountStorageKey(key) {
     const activeId = this.getActiveAccountId();
-    if (!activeId) throw new Error('Nenhuma conta ativa!');
+    if (!activeId) return null;
     return `${STORAGE_KEYS.DATA_PREFIX}${activeId}_${key}`;
   }
 
   getPixInitialBalance() {
-    const val = localStorage.getItem(this.getAccountStorageKey('pix_initial'));
+    const key = this.getAccountStorageKey('pix_initial');
+    if (!key) return 2500.00;
+    const val = localStorage.getItem(key);
     return val !== null ? parseFloat(val) : 2500.00;
   }
 
   setPixInitialBalance(amount) {
-    localStorage.setItem(this.getAccountStorageKey('pix_initial'), parseFloat(amount) || 0);
+    const key = this.getAccountStorageKey('pix_initial');
+    if (key) {
+      localStorage.setItem(key, parseFloat(amount) || 0);
+    }
   }
 
   getPixSummaryForMonth(year, month) {
@@ -149,15 +205,14 @@ class FinanceStore {
     const targetPrefix = `${year}-${monthStr}`;
 
     all.forEach(t => {
-      // Considera lançamentos que NÃO usam cartão de crédito (Dinheiro / PIX)
       if (!t.cardId || t.cardId === '') {
         const val = parseFloat(t.amount);
         if (t.type === 'receita') {
           totalPixIncomeAllTime += val;
-          if (t.date.startsWith(targetPrefix)) monthPixIncome += val;
+          if (t.date && t.date.startsWith(targetPrefix)) monthPixIncome += val;
         } else if (t.type === 'despesa') {
           totalPixExpenseAllTime += val;
-          if (t.date.startsWith(targetPrefix)) monthPixExpense += val;
+          if (t.date && t.date.startsWith(targetPrefix)) monthPixExpense += val;
         }
       }
     });
@@ -171,10 +226,66 @@ class FinanceStore {
     };
   }
 
-  seedInitialDataForAccount(accountId) {
+  getAchievements() {
+    const key = this.getAccountStorageKey('achievements');
+    if (!key) return { first_card: false, first_tx: false, first_upcoming: false, first_goal: false, tour_done: false };
+    const data = localStorage.getItem(key);
+    return data ? JSON.parse(data) : { first_card: false, first_tx: false, first_upcoming: false, first_goal: false, tour_done: false };
+  }
+
+  saveAchievements(ach) {
+    const key = this.getAccountStorageKey('achievements');
+    if (key) localStorage.setItem(key, JSON.stringify(ach));
+  }
+
+  checkFirstAchievement(type) {
+    const ach = this.getAchievements();
+    if (!ach[type]) {
+      ach[type] = true;
+      this.saveAchievements(ach);
+
+      const messages = {
+        first_card: {
+          title: '🎉 1º Cartão Cadastrado!',
+          text: 'Parabéns! Esse é o seu primeiro cartão de crédito adicionado. Continue assim para ter o controle total das suas faturas!'
+        },
+        first_tx: {
+          title: '🎉 1º Lançamento Financeiro!',
+          text: 'Parabéns! Você fez seu primeiro registro no extrato. Continue acompanhando e descubra como melhorar suas finanças!'
+        },
+        first_upcoming: {
+          title: '🎉 1ª Conta Agendada!',
+          text: 'Parabéns! Essa é sua primeira conta a pagar agendada. Acompanhe os vencimentos para nunca pagar juros!'
+        },
+        first_goal: {
+          title: '🎉 1ª Meta de Economia!',
+          text: 'Parabéns! Sua primeira meta financeira foi criada. Mantenha o foco para conquistar seus objetivos!'
+        }
+      };
+
+      return messages[type] || null;
+    }
+    return null;
+  }
+
+  seedInitialDataForAccount(accountId, isDemo = false) {
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
+
+    if (!isDemo) {
+      // Novas contas registradas iniciam ZERADAS e LIMPAS
+      localStorage.setItem(`${STORAGE_KEYS.DATA_PREFIX}${accountId}_pix_initial`, '0');
+      localStorage.setItem(`${STORAGE_KEYS.DATA_PREFIX}${accountId}_cards`, JSON.stringify([]));
+      localStorage.setItem(`${STORAGE_KEYS.DATA_PREFIX}${accountId}_transactions`, JSON.stringify([]));
+      localStorage.setItem(`${STORAGE_KEYS.DATA_PREFIX}${accountId}_upcoming`, JSON.stringify([]));
+      localStorage.setItem(`${STORAGE_KEYS.DATA_PREFIX}${accountId}_budgets`, JSON.stringify({}));
+      localStorage.setItem(`${STORAGE_KEYS.DATA_PREFIX}${accountId}_goals`, JSON.stringify([]));
+      localStorage.setItem(`${STORAGE_KEYS.DATA_PREFIX}${accountId}_achievements`, JSON.stringify({
+        first_card: false, first_tx: false, first_upcoming: false, first_goal: false, tour_done: false
+      }));
+      return;
+    }
 
     const sampleCards = [
       {
@@ -198,24 +309,17 @@ class FinanceStore {
     ];
 
     const sampleTransactions = [
-      { id: 'tx_1', description: 'Salário Mensal via PIX', amount: 6500.00, type: 'receita', category: 'salario', date: `${year}-${month}-01`, cardId: '' },
-      { id: 'tx_2', description: 'Supermercado Mensal', amount: 840.50, type: 'despesa', category: 'alimentacao', date: `${year}-${month}-03`, cardId: 'card_fenix_red' },
-      { id: 'tx_3', description: 'Aluguel & Contas no Pix', amount: 1900.00, type: 'despesa', category: 'moradia', date: `${year}-${month}-05`, cardId: '' },
-      { id: 'tx_4', description: 'Assinatura Netflix & Spotify', amount: 85.90, type: 'despesa', category: 'lazer', date: `${year}-${month}-08`, cardId: 'card_nubank' },
-      { id: 'tx_5', description: 'Combustível & Uber', amount: 280.00, type: 'despesa', category: 'transporte', date: `${year}-${month}-12`, cardId: 'card_fenix_red' }
+      { id: 'tx_1', description: 'Salário Mensal via PIX', amount: 6500.00, type: 'receita', category: 'salario', date: `${year}-${month}-01`, cardId: '', installments: 1, installmentAmount: 6500.00 },
+      { id: 'tx_2', description: 'Supermercado Mensal', amount: 840.50, type: 'despesa', category: 'alimentacao', date: `${year}-${month}-03`, cardId: 'card_fenix_red', installments: 1, installmentAmount: 840.50 }
     ];
 
     const sampleUpcoming = [
-      { id: 'up_1', description: 'Fatura do Cartão Fenix Red', amount: 1120.50, category: 'moradia', dueDate: `${year}-${month}-15`, cardId: 'card_fenix_red', status: 'pending' },
-      { id: 'up_2', description: 'Assinatura Claude Max', amount: 299.00, category: 'lazer', dueDate: `${year}-${month}-22`, cardId: 'card_nubank', status: 'pending' },
-      { id: 'up_3', description: 'Plano de Saúde no Pix', amount: 450.00, category: 'saude', dueDate: `${year}-${month}-28`, cardId: '', status: 'pending' }
+      { id: 'up_1', description: 'Internet Fibra 500 Mega', amount: 120.00, category: 'lazer', dueDate: `${year}-${month}-10`, cardId: '', status: 'pending', billType: 'recurring' },
+      { id: 'up_2', description: 'Conta de Luz (Enel / Cemig)', amount: 185.40, category: 'moradia', dueDate: `${year}-${month}-15`, cardId: '', status: 'pending', billType: 'recurring' }
     ];
 
-    const sampleBudgets = { alimentacao: 1200, moradia: 2200, lazer: 600 };
-    const sampleGoals = [
-      { id: 'g_1', title: 'Reserva de Emergência', target: 15000, current: 9500 },
-      { id: 'g_2', title: 'Viagem de Fim de Ano', target: 5000, current: 3200 }
-    ];
+    const sampleBudgets = { alimentacao: 1200, moradia: 2200 };
+    const sampleGoals = [{ id: 'g_1', title: 'Reserva de Emergência', target: 15000, current: 9500 }];
 
     localStorage.setItem(`${STORAGE_KEYS.DATA_PREFIX}${accountId}_pix_initial`, '2500');
     localStorage.setItem(`${STORAGE_KEYS.DATA_PREFIX}${accountId}_cards`, JSON.stringify(sampleCards));
@@ -223,16 +327,22 @@ class FinanceStore {
     localStorage.setItem(`${STORAGE_KEYS.DATA_PREFIX}${accountId}_upcoming`, JSON.stringify(sampleUpcoming));
     localStorage.setItem(`${STORAGE_KEYS.DATA_PREFIX}${accountId}_budgets`, JSON.stringify(sampleBudgets));
     localStorage.setItem(`${STORAGE_KEYS.DATA_PREFIX}${accountId}_goals`, JSON.stringify(sampleGoals));
+    localStorage.setItem(`${STORAGE_KEYS.DATA_PREFIX}${accountId}_achievements`, JSON.stringify({
+      first_card: true, first_tx: true, first_upcoming: true, first_goal: true, tour_done: true
+    }));
   }
 
   // --- GASTOS FUTUROS & CONTAS A PAGAR ---
   getUpcomingExpenses() {
-    const data = localStorage.getItem(this.getAccountStorageKey('upcoming'));
+    const key = this.getAccountStorageKey('upcoming');
+    if (!key) return [];
+    const data = localStorage.getItem(key);
     return data ? JSON.parse(data) : [];
   }
 
   saveUpcomingExpenses(list) {
-    localStorage.setItem(this.getAccountStorageKey('upcoming'), JSON.stringify(list));
+    const key = this.getAccountStorageKey('upcoming');
+    if (key) localStorage.setItem(key, JSON.stringify(list));
   }
 
   addUpcomingExpense(item) {
@@ -244,22 +354,60 @@ class FinanceStore {
     return item;
   }
 
+  addOneMonthToDate(dateStr) {
+    if (!dateStr) return new Date().toISOString().split('T')[0];
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      let y = parseInt(parts[0]);
+      let m = parseInt(parts[1]); // 1-12
+      let d = parseInt(parts[2]);
+
+      m++;
+      if (m > 12) {
+        m = 1;
+        y++;
+      }
+      return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    }
+    return dateStr;
+  }
+
   markUpcomingPaid(id) {
     const list = this.getUpcomingExpenses();
     const item = list.find(u => u.id === id);
     if (item) {
-      item.status = 'paid';
-      this.saveUpcomingExpenses(list);
-
+      // 1. Lança a despesa real no extrato e debita do saldo
       this.addTransaction({
         description: item.description,
         amount: item.amount,
         type: 'despesa',
         category: item.category || 'outros_despesa',
         cardId: item.cardId || '',
+        installments: 1,
         date: new Date().toISOString().split('T')[0]
       });
-      return true;
+
+      if (item.billType === 'financing') {
+        const remaining = (parseInt(item.remainingInstallments) || 1) - 1;
+        if (remaining <= 0) {
+          // Empréstimo / Financiamento Quitado! Remove da lista
+          this.deleteUpcomingExpense(id);
+          return { status: 'quitado', description: item.description };
+        } else {
+          // Atualiza parcelas restantes e avança a data de vencimento em 1 mês
+          item.remainingInstallments = remaining;
+          item.dueDate = this.addOneMonthToDate(item.dueDate);
+          item.status = 'pending';
+          this.saveUpcomingExpenses(list);
+          return { status: 'paid_installment', remaining: remaining, description: item.description };
+        }
+      } else {
+        // Recorrente Mensal (Luz, Água, Internet) - Avança vencimento para o próximo mês
+        item.dueDate = this.addOneMonthToDate(item.dueDate);
+        item.status = 'pending';
+        this.saveUpcomingExpenses(list);
+        return { status: 'paid_recurring', description: item.description };
+      }
     }
     return false;
   }
@@ -309,7 +457,9 @@ class FinanceStore {
           type: isIncome ? 'receita' : 'despesa',
           category,
           date: dateStr,
-          cardId: ''
+          cardId: '',
+          installments: 1,
+          installmentAmount: amount
         });
       }
     }
@@ -344,7 +494,9 @@ class FinanceStore {
             type: isIncome ? 'receita' : 'despesa',
             category: isIncome ? 'salario' : 'outros_despesa',
             date: formattedDate,
-            cardId: ''
+            cardId: '',
+            installments: 1,
+            installmentAmount: Math.abs(amt)
           });
         }
       }
@@ -379,12 +531,15 @@ class FinanceStore {
 
   // --- CARTÕES DE CRÉDITO ---
   getCards() {
-    const data = localStorage.getItem(this.getAccountStorageKey('cards'));
+    const key = this.getAccountStorageKey('cards');
+    if (!key) return [];
+    const data = localStorage.getItem(key);
     return data ? JSON.parse(data) : [];
   }
 
   saveCards(cards) {
-    localStorage.setItem(this.getAccountStorageKey('cards'), JSON.stringify(cards));
+    const key = this.getAccountStorageKey('cards');
+    if (key) localStorage.setItem(key, JSON.stringify(cards));
   }
 
   addCard(card) {
@@ -401,56 +556,83 @@ class FinanceStore {
   }
 
   getCardSpentTotal(cardId, year, month) {
-    const txs = this.getFilteredTransactions(year, month, { type: 'despesa' });
+    const txs = this.getFilteredTransactions(year, month, { type: 'despesa', cardId: cardId });
     let total = 0;
     txs.forEach(t => {
-      if (t.cardId === cardId) {
-        total += parseFloat(t.amount);
-      }
+      total += parseFloat(t.amount);
     });
     return total;
   }
 
   // --- TRANSAÇÕES ---
   getTransactions() {
-    const data = localStorage.getItem(this.getAccountStorageKey('transactions'));
+    const key = this.getAccountStorageKey('transactions');
+    if (!key) return [];
+    const data = localStorage.getItem(key);
     return data ? JSON.parse(data) : [];
   }
 
   saveTransactions(transactions) {
-    localStorage.setItem(this.getAccountStorageKey('transactions'), JSON.stringify(transactions));
+    const key = this.getAccountStorageKey('transactions');
+    if (key) localStorage.setItem(key, JSON.stringify(transactions));
   }
 
   addTransaction(tx) {
     const transactions = this.getTransactions();
     tx.id = 'tx_' + Date.now();
+
+    const instCount = parseInt(tx.installments) || 1;
+    tx.installments = instCount;
+
+    if (tx.cardId && instCount > 1) {
+      const totalAmt = parseFloat(tx.amount);
+      tx.installmentAmount = Math.round((totalAmt / instCount) * 100) / 100;
+    } else {
+      tx.installments = 1;
+      tx.installmentAmount = parseFloat(tx.amount);
+    }
+
     transactions.unshift(tx);
     this.saveTransactions(transactions);
     return tx;
   }
 
   updateTransaction(id, updatedTx) {
+    const targetId = id.includes('_inst_') ? id.split('_inst_')[0] : id;
     const transactions = this.getTransactions();
-    const index = transactions.findIndex(t => t.id === id);
+    const index = transactions.findIndex(t => t.id === targetId);
     if (index !== -1) {
-      transactions[index] = { ...transactions[index], ...updatedTx, id };
+      const instCount = parseInt(updatedTx.installments) || 1;
+      updatedTx.installments = instCount;
+      if (updatedTx.cardId && instCount > 1) {
+        updatedTx.installmentAmount = Math.round((parseFloat(updatedTx.amount) / instCount) * 100) / 100;
+      } else {
+        updatedTx.installments = 1;
+        updatedTx.installmentAmount = parseFloat(updatedTx.amount);
+      }
+
+      transactions[index] = { ...transactions[index], ...updatedTx, id: targetId };
       this.saveTransactions(transactions);
     }
   }
 
   deleteTransaction(id) {
-    const transactions = this.getTransactions().filter(t => t.id !== id);
+    const targetId = id.includes('_inst_') ? id.split('_inst_')[0] : id;
+    const transactions = this.getTransactions().filter(t => t.id !== targetId && t.id !== id);
     this.saveTransactions(transactions);
   }
 
   // --- ORÇAMENTOS & METAS ---
   getBudgets() {
-    const data = localStorage.getItem(this.getAccountStorageKey('budgets'));
+    const key = this.getAccountStorageKey('budgets');
+    if (!key) return {};
+    const data = localStorage.getItem(key);
     return data ? JSON.parse(data) : {};
   }
 
   saveBudgets(budgets) {
-    localStorage.setItem(this.getAccountStorageKey('budgets'), JSON.stringify(budgets));
+    const key = this.getAccountStorageKey('budgets');
+    if (key) localStorage.setItem(key, JSON.stringify(budgets));
   }
 
   setBudget(category, limit) {
@@ -460,12 +642,15 @@ class FinanceStore {
   }
 
   getGoals() {
-    const data = localStorage.getItem(this.getAccountStorageKey('goals'));
+    const key = this.getAccountStorageKey('goals');
+    if (!key) return [];
+    const data = localStorage.getItem(key);
     return data ? JSON.parse(data) : [];
   }
 
   saveGoals(goals) {
-    localStorage.setItem(this.getAccountStorageKey('goals'), JSON.stringify(goals));
+    const key = this.getAccountStorageKey('goals');
+    if (key) localStorage.setItem(key, JSON.stringify(goals));
   }
 
   addGoal(goal) {
@@ -480,7 +665,7 @@ class FinanceStore {
     this.saveGoals(goals);
   }
 
-  // --- CÁLCULOS & FILTROS ---
+  // --- CÁLCULOS & FILTROS COM SUPORTE A COMPRAS PARCELADAS NO CARTÃO ---
   getCategoryInfo(catId) {
     return DEFAULT_CATEGORIES.find(c => c.id === catId) || {
       id: catId, name: catId, icon: 'fa-folder', color: '#94a3b8', type: 'despesa'
@@ -488,13 +673,55 @@ class FinanceStore {
   }
 
   getFilteredTransactions(year, month, filters = {}) {
-    let list = this.getTransactions();
+    const rawList = this.getTransactions();
+    let processedList = [];
 
-    if (year && month !== undefined) {
-      const monthStr = String(month + 1).padStart(2, '0');
-      const targetPrefix = `${year}-${monthStr}`;
-      list = list.filter(t => t.date.startsWith(targetPrefix));
+    if (year !== undefined && month !== undefined) {
+      const targetYear = parseInt(year);
+      const targetMonth = parseInt(month); // 0-based
+
+      rawList.forEach(t => {
+        const instCount = parseInt(t.installments) || 1;
+
+        if (instCount > 1 && t.cardId) {
+          if (t.date) {
+            const pParts = t.date.split('-');
+            if (pParts.length === 3) {
+              const pYear = parseInt(pParts[0]);
+              const pMonth = parseInt(pParts[1]) - 1;
+
+              const diffMonths = (targetYear - pYear) * 12 + (targetMonth - pMonth);
+
+              if (diffMonths >= 0 && diffMonths < instCount) {
+                const currentInst = diffMonths + 1;
+                const instAmt = t.installmentAmount || (parseFloat(t.amount) / instCount);
+                
+                processedList.push({
+                  ...t,
+                  id: `${t.id}_inst_${currentInst}`,
+                  realId: t.id,
+                  description: `${t.description} (${currentInst}/${instCount})`,
+                  amount: instAmt,
+                  currentInstallment: currentInst,
+                  totalInstallments: instCount,
+                  date: t.date
+                });
+              }
+            }
+          }
+        } else {
+          const monthStr = String(targetMonth + 1).padStart(2, '0');
+          const targetPrefix = `${targetYear}-${monthStr}`;
+          if (t.date && t.date.startsWith(targetPrefix)) {
+            processedList.push(t);
+          }
+        }
+      });
+    } else {
+      processedList = rawList;
     }
+
+    let list = processedList;
 
     if (filters.type && filters.type !== 'all') {
       list = list.filter(t => t.type === filters.type);
@@ -504,13 +731,13 @@ class FinanceStore {
       list = list.filter(t => t.category === filters.category);
     }
 
-    if (filters.cardId && filters.cardId !== 'all') {
-      list = list.filter(t => t.cardId === filters.cardId);
+    if (filters.cardId !== undefined && filters.cardId !== 'all') {
+      list = list.filter(t => (t.cardId || '') === filters.cardId);
     }
 
     if (filters.search && filters.search.trim() !== '') {
       const query = filters.search.toLowerCase().trim();
-      list = list.filter(t => t.description.toLowerCase().includes(query));
+      list = list.filter(t => t.description && t.description.toLowerCase().includes(query));
     }
 
     return list.sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -587,12 +814,13 @@ class FinanceStore {
   exportCSV() {
     const list = this.getTransactions();
     const cards = this.getCards();
-    let csv = 'ID,Data,Tipo,Categoria,Cartao,Descricao,Valor\n';
+    let csv = 'ID,Data,Tipo,Categoria,Cartao,Parcelas,Descricao,Valor\n';
     list.forEach(t => {
       const cat = this.getCategoryInfo(t.category).name;
       const card = cards.find(c => c.id === t.cardId);
       const cardName = card ? card.name : 'Dinheiro / Pix';
-      csv += `"${t.id}","${t.date}","${t.type}","${cat}","${cardName}","${t.description.replace(/"/g, '""')}",${t.amount}\n`;
+      const instStr = t.installments > 1 ? `${t.installments}x` : '1x';
+      csv += `"${t.id}","${t.date}","${t.type}","${cat}","${cardName}","${instStr}","${(t.description || '').replace(/"/g, '""')}",${t.amount}\n`;
     });
     return csv;
   }

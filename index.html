@@ -23,8 +23,9 @@
   <!-- Custom CSS -->
   <link rel="stylesheet" href="css/styles.css" />
 
-  <!-- Chart.js CDN -->
+  <!-- Chart.js & Google Identity Services -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 
@@ -34,26 +35,81 @@
       <div class="auth-header">
         <div class="auth-logo-icon"><i class="fa-solid fa-fire"></i></div>
         <h2>Fenix<span>Wallet</span></h2>
-        <p id="authSubtitle">Selecione uma conta para acessar suas finanças</p>
+        <p id="authSubtitle">Entre na sua conta para acessar suas finanças em qualquer dispositivo</p>
       </div>
 
-      <div id="accountSelectView" class="auth-view hidden">
-        <div class="accounts-grid" id="accountsGrid"></div>
-        <button id="btnGoToCreateAccount" class="btn btn-outline full-width mt-4">
-          <i class="fa-solid fa-user-plus"></i> Criar Nova Conta
+      <!-- VIEW 1: LOGIN COM GOOGLE OU E-MAIL/SENHA -->
+      <div id="accountLoginView" class="auth-view">
+        <button type="button" id="btnGoogleLogin" class="btn-google-auth">
+          <svg viewBox="0 0 24 24" width="22" height="22" style="flex-shrink: 0;">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+          </svg>
+          <span>Fazer Login com o Google</span>
         </button>
-      </div>
 
-      <div id="accountCreateView" class="auth-view hidden">
-        <form id="createAccountForm">
+        <div class="auth-divider">
+          <span>ou entre com e-mail e senha</span>
+        </div>
+
+        <form id="loginAccountForm">
           <div class="form-group">
-            <label for="regName">Seu Nome ou Nome da Conta</label>
-            <input type="text" id="regName" placeholder="Ex: Alex Souza, Cartão Principal" required />
+            <label for="loginEmail">E-mail ou Usuário</label>
+            <input type="email" id="loginEmail" placeholder="seuemail@exemplo.com" required />
           </div>
 
           <div class="form-group">
-            <label for="regEmail">E-mail de Identificação</label>
+            <label for="loginPassword">Sua Senha</label>
+            <input type="password" id="loginPassword" placeholder="••••••••" required />
+          </div>
+
+          <label class="remember-me-group">
+            <input type="checkbox" id="loginRememberMe" checked />
+            <span>Manter-me sempre conectado neste dispositivo</span>
+          </label>
+
+          <button type="submit" class="btn btn-primary full-width mt-3">
+            <i class="fa-solid fa-right-to-bracket"></i> Entrar na Minha Conta
+          </button>
+        </form>
+
+        <div style="display:flex; justify-content:space-between; margin-top:1rem; font-size:0.82rem;">
+          <button type="button" id="btnGoToCreateFromLogin" class="btn-link">Criar Nova Conta</button>
+          <button type="button" id="btnGoToSelectFromLogin" class="btn-link text-muted">Contas Salvas localmente</button>
+        </div>
+      </div>
+
+      <!-- VIEW 2: SELEÇÃO DE CONTAS SALVAS -->
+      <div id="accountSelectView" class="auth-view hidden">
+        <div class="accounts-grid" id="accountsGrid"></div>
+        <div style="display:flex; gap:0.5rem; margin-top:1rem;">
+          <button id="btnBackToLoginFromSelect" class="btn btn-secondary flex-1">
+            <i class="fa-solid fa-arrow-left"></i> Voltar ao Login
+          </button>
+          <button id="btnGoToCreateAccount" class="btn btn-outline flex-1">
+            <i class="fa-solid fa-user-plus"></i> Criar Nova Conta
+          </button>
+        </div>
+      </div>
+
+      <!-- VIEW 3: CRIAR NOVA CONTA -->
+      <div id="accountCreateView" class="auth-view hidden">
+        <form id="createAccountForm">
+          <div class="form-group">
+            <label for="regName">Seu Nome Completo</label>
+            <input type="text" id="regName" placeholder="Ex: Alex Souza" required />
+          </div>
+
+          <div class="form-group">
+            <label for="regEmail">E-mail para Login</label>
             <input type="email" id="regEmail" placeholder="seuemail@exemplo.com" required />
+          </div>
+
+          <div class="form-group">
+            <label for="regPassword">Crie uma Senha</label>
+            <input type="password" id="regPassword" placeholder="Digite uma senha segura..." required />
           </div>
 
           <div class="avatar-select-group">
@@ -61,13 +117,87 @@
             <div class="avatar-options" id="avatarOptionsContainer"></div>
           </div>
 
+          <label class="remember-me-group mt-2">
+            <input type="checkbox" id="regRememberMe" checked />
+            <span>Manter-me sempre conectado neste dispositivo</span>
+          </label>
+
           <div class="auth-actions mt-3">
-            <button type="button" id="btnCancelCreateAccount" class="btn btn-secondary hidden">Voltar</button>
+            <button type="button" id="btnCancelCreateAccount" class="btn btn-secondary">Voltar ao Login</button>
             <button type="submit" class="btn btn-primary full-width">
-              <i class="fa-solid fa-right-to-bracket"></i> Entrar no Fenix Wallet
+              <i class="fa-solid fa-user-check"></i> Concluir e Entrar
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL POP-UP GOOGLE AUTH ACCOUNTS CHOOSER -->
+  <div class="modal-backdrop hidden" id="googleAuthModal">
+    <div class="modal-content google-accounts-popup" style="max-width: 420px; padding: 1.75rem; text-align: center;">
+      <div class="google-popup-header">
+        <svg viewBox="0 0 24 24" width="36" height="36" style="margin-bottom: 0.5rem;">
+          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+        </svg>
+        <h3 style="font-family: var(--font-heading); font-size: 1.25rem; font-weight: 800;">Escolha uma conta do Google</h3>
+        <p class="text-muted" style="font-size: 0.85rem;">para acessar <strong>Fenix Wallet</strong></p>
+      </div>
+
+      <div class="google-accounts-list mt-3">
+        <!-- Conta Google 1 (Exemplo) -->
+        <button type="button" class="google-account-item-btn" data-google-email="usuario.fenix@gmail.com" data-google-name="Usuário Fénix">
+          <div class="google-avatar-circle" style="background: #1a73e8;">U</div>
+          <div class="google-acc-info">
+            <span class="google-acc-name">Usuário Fénix</span>
+            <span class="google-acc-email">usuario.fenix@gmail.com</span>
+          </div>
+        </button>
+
+        <!-- Conta Google 2 (Exemplo) -->
+        <button type="button" class="google-account-item-btn" data-google-email="alex.souza@gmail.com" data-google-name="Alex Souza">
+          <div class="google-avatar-circle" style="background: #e11d48;">A</div>
+          <div class="google-acc-info">
+            <span class="google-acc-name">Alex Souza</span>
+            <span class="google-acc-email">alex.souza@gmail.com</span>
+          </div>
+        </button>
+
+        <!-- Opção para digitar outra conta -->
+        <button type="button" id="btnCustomGoogleAccount" class="google-account-item-btn custom-acc">
+          <div class="google-avatar-circle" style="background: #5f6368;"><i class="fa-solid fa-user-plus"></i></div>
+          <div class="google-acc-info">
+            <span class="google-acc-name">Usar outra conta do Google</span>
+            <span class="google-acc-email">Digitar seu e-mail do Google</span>
+          </div>
+        </button>
+      </div>
+
+      <!-- Formulário de Custom Google Email (Oculto inicialmente) -->
+      <form id="googleCustomAccountForm" class="hidden mt-3" style="text-align: left;">
+        <div class="form-group">
+          <label for="googleCustomEmail">E-mail do Google</label>
+          <input type="email" id="googleCustomEmail" placeholder="seu.email@gmail.com" required />
+        </div>
+        <div class="form-group">
+          <label for="googleCustomName">Seu Nome</label>
+          <input type="text" id="googleCustomName" placeholder="Seu Nome Completo" required />
+        </div>
+        <button type="submit" class="btn btn-primary full-width" style="background: #1a73e8; border: none;">
+          <i class="fa-solid fa-right-to-bracket"></i> Conectar Conta do Google
+        </button>
+      </form>
+
+      <div style="border-top: 1px solid var(--border-color); margin-top: 1.2rem; padding-top: 0.85rem;">
+        <label class="remember-me-group" style="justify-content: center; margin: 0 0 1rem 0;">
+          <input type="checkbox" id="googleRememberMe" checked />
+          <span>Manter conectado neste dispositivo</span>
+        </label>
+
+        <button type="button" class="btn btn-secondary full-width closeModalBtn">Cancelar</button>
       </div>
     </div>
   </div>
@@ -219,6 +349,45 @@
               </button>
             </div>
             <div class="cards-slider-container" id="cardsSliderContainer"></div>
+          </div>
+
+          <!-- CONTAS FREQUENTES & GASTOS FUTUROS (ÍCONES RÁPIDOS) -->
+          <div class="section-container">
+            <div class="section-header">
+              <h3><i class="fa-solid fa-calendar-day" style="color: var(--accent-red-primary);"></i> Gastos Futuros & Contas Rápidas</h3>
+              <button class="btn-link" data-tab-jump="upcoming">Ir para Gastos Futuros <i class="fa-solid fa-arrow-right"></i></button>
+            </div>
+            <div class="quick-bills-grid">
+              <button class="quick-bill-card" data-bill-preset="internet" title="Internet Mensal">
+                <div class="quick-bill-icon internet"><i class="fa-solid fa-wifi"></i></div>
+                <span class="quick-bill-title">Internet</span>
+                <span class="quick-bill-badge recurring">Sempre ativo</span>
+              </button>
+
+              <button class="quick-bill-card" data-bill-preset="luz" title="Conta de Luz">
+                <div class="quick-bill-icon luz"><i class="fa-solid fa-bolt"></i></div>
+                <span class="quick-bill-title">Luz</span>
+                <span class="quick-bill-badge recurring">Sempre ativo</span>
+              </button>
+
+              <button class="quick-bill-card" data-bill-preset="agua" title="Conta de Água">
+                <div class="quick-bill-icon agua"><i class="fa-solid fa-droplet"></i></div>
+                <span class="quick-bill-title">Água</span>
+                <span class="quick-bill-badge recurring">Sempre ativo</span>
+              </button>
+
+              <button class="quick-bill-card" data-bill-preset="emprestimo" title="Empréstimo">
+                <div class="quick-bill-icon emprestimo"><i class="fa-solid fa-building-columns"></i></div>
+                <span class="quick-bill-title">Empréstimo</span>
+                <span class="quick-bill-badge financing">Até quitar</span>
+              </button>
+
+              <button class="quick-bill-card" data-bill-preset="financiamento" title="Financiamento">
+                <div class="quick-bill-icon financiamento"><i class="fa-solid fa-car-side"></i></div>
+                <span class="quick-bill-title">Financiamento</span>
+                <span class="quick-bill-badge financing">Até quitar</span>
+              </button>
+            </div>
           </div>
 
           <!-- ATALHOS RÁPIDOS -->
@@ -656,8 +825,36 @@
           </div>
         </div>
 
+        <div class="form-row hidden" id="txInstallmentsGroup">
+          <div class="form-group">
+            <label for="txInstallments">Parcelamento</label>
+            <select id="txInstallments">
+              <option value="1">1x (À vista na fatura)</option>
+              <option value="2">2x parcelado</option>
+              <option value="3">3x parcelado</option>
+              <option value="4">4x parcelado</option>
+              <option value="5">5x parcelado</option>
+              <option value="6">6x parcelado</option>
+              <option value="7">7x parcelado</option>
+              <option value="8">8x parcelado</option>
+              <option value="9">9x parcelado</option>
+              <option value="10">10x parcelado</option>
+              <option value="11">11x parcelado</option>
+              <option value="12">12x parcelado</option>
+              <option value="18">18x parcelado</option>
+              <option value="24">24x parcelado</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Valor da Parcela</label>
+            <div class="installment-calc-box">
+              <span id="txInstallmentAmountDisplay">R$ 0,00 /mês</span>
+            </div>
+          </div>
+        </div>
+
         <div class="form-group">
-          <label for="txDate">Data</label>
+          <label for="txDate">Data da Compra</label>
           <input type="date" id="txDate" required />
         </div>
 
@@ -708,7 +905,7 @@
       <form id="upcomingForm">
         <div class="form-group">
           <label for="upDescription">Descrição do Gasto Futuro</label>
-          <input type="text" id="upDescription" placeholder="Ex: Fatura Nubank, Aluguel, Luz" required />
+          <input type="text" id="upDescription" placeholder="Ex: Fatura Nubank, Aluguel, Luz, Empréstimo" required />
         </div>
 
         <div class="form-group">
@@ -717,6 +914,19 @@
             <span>R$</span>
             <input type="number" id="upAmount" step="0.01" min="0.01" placeholder="0,00" required />
           </div>
+        </div>
+
+        <div class="form-group">
+          <label for="upBillType">Comportamento de Pagamento</label>
+          <select id="upBillType" required>
+            <option value="recurring">Recorrente Mensal (Sempre ativo: Luz, Água, Internet, Aluguel)</option>
+            <option value="financing">Financiamento / Empréstimo (Até quitar totalmente)</option>
+          </select>
+        </div>
+
+        <div class="form-group hidden" id="upInstallmentsGroup">
+          <label for="upRemainingInstallments">Total de Parcelas para Quitar</label>
+          <input type="number" id="upRemainingInstallments" min="1" max="360" value="12" placeholder="Ex: 12, 36, 48" />
         </div>
 
         <div class="form-row">
@@ -753,24 +963,79 @@
 
         <div class="form-row">
           <div class="form-group">
-            <label for="cardBrand">Bandeira</label>
+            <label for="cardBank">Banco Emissor / Instituição</label>
+            <select id="cardBank">
+              <option value="Nubank">Nubank</option>
+              <option value="Itaú">Itaú / Personnalité</option>
+              <option value="Bradesco">Bradesco / Next</option>
+              <option value="Banco do Brasil">Banco do Brasil (BB)</option>
+              <option value="Caixa">Caixa Econômica Federal</option>
+              <option value="Santander">Santander</option>
+              <option value="Inter">Banco Inter</option>
+              <option value="C6 Bank">C6 Bank</option>
+              <option value="BTG Pactual">BTG Pactual</option>
+              <option value="Mercado Pago">Mercado Pago</option>
+              <option value="PicPay">PicPay</option>
+              <option value="PagBank">PagBank / PagSeguro</option>
+              <option value="Banco Pan">Banco Pan</option>
+              <option value="Neon">Neon</option>
+              <option value="Nomad">Nomad</option>
+              <option value="Banrisul">Banrisul</option>
+              <option value="BMG">Banco BMG</option>
+              <option value="BRB">BRB (Banco de Brasília)</option>
+              <option value="Sicoob">Sicoob</option>
+              <option value="Sicredi">Sicredi</option>
+              <option value="Will Bank">Will Bank</option>
+              <option value="XP">XP Investimentos</option>
+              <option value="Outro">Outro Banco / Instituição</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="cardBrand">Bandeira do Cartão</label>
             <select id="cardBrand" required>
               <option value="VISA">VISA</option>
               <option value="MASTERCARD">Mastercard</option>
               <option value="ELO">Elo</option>
-              <option value="AMEX">American Express</option>
+              <option value="AMEX">American Express (Amex)</option>
+              <option value="DINERS">Diners Club</option>
+              <option value="HIPERCARD">Hipercard</option>
+              <option value="ALELO">Alelo Benefícios</option>
+              <option value="TICKET">Ticket Alimentação/Refeição</option>
+              <option value="VR">VR Benefícios</option>
+              <option value="SODEXO">Sodexo / Pluxee</option>
+              <option value="VALECARD">Vale Card</option>
+              <option value="VEROCHEQUE">Verocheque</option>
+              <option value="JCB">JCB</option>
+              <option value="DISCOVER">Discover</option>
+              <option value="AURA">Aura</option>
+              <option value="SOROCRED">Sorocred / Afinz</option>
+              <option value="CABAL">Cabal</option>
+              <option value="CREDZ">Credz</option>
+              <option value="BANESCARD">Banescard</option>
+              <option value="BANPARACARD">Banpará Card</option>
+              <option value="GREENCARD">GreenCard</option>
+              <option value="GOODCARD">Good Card</option>
+              <option value="MAIS">Mais!</option>
+              <option value="POLICARD">Policard</option>
+              <option value="REDECOMPRAS">Rede Compras</option>
+              <option value="BRASILCARD">BrasilCard</option>
+              <option value="SENFF">Senff</option>
+              <option value="PERSONALCARD">Personal Card</option>
+              <option value="PLANVALE">Planvale</option>
+              <option value="ONECARD">OneCard</option>
+              <option value="NUTRICARD">Nutricard</option>
+              <option value="MAXCARD">MaxCard</option>
+              <option value="LECARD">LeCard</option>
+              <option value="LIBERCARD">Libercard</option>
+              <option value="OUTRA">Outra Bandeira</option>
             </select>
-          </div>
-          <div class="form-group">
-            <label for="cardLastDigits">Últimos 4 Dígitos</label>
-            <input type="text" id="cardLastDigits" maxlength="4" placeholder="5678" required />
           </div>
         </div>
 
         <div class="form-row">
           <div class="form-group">
-            <label for="cardLimit">Limite Total (R$)</label>
-            <input type="number" id="cardLimit" step="0.01" min="1" placeholder="5000,00" required />
+            <label for="cardLastDigits">Últimos 4 Dígitos</label>
+            <input type="text" id="cardLastDigits" maxlength="4" placeholder="5678" required />
           </div>
           <div class="form-group">
             <label for="cardDueDay">Dia de Vencimento</label>
@@ -779,13 +1044,24 @@
         </div>
 
         <div class="form-group">
-          <label for="cardColor">Cor do Cartão</label>
+          <label for="cardLimit">Limite Total do Cartão (R$)</label>
+          <div class="input-prefix">
+            <span>R$</span>
+            <input type="number" id="cardLimit" step="0.01" min="1" placeholder="5000,00" required />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="cardColor">Aparência do Cartão (Estilo do Banco)</label>
           <select id="cardColor">
             <option value="linear-gradient(135deg, #f43f5e 0%, #e11d48 50%, #881337 100%)">Fenix Vermelho (Padrão)</option>
             <option value="linear-gradient(135deg, #a855f7 0%, #7e22ce 50%, #581c87 100%)">Roxo Nubank</option>
-            <option value="linear-gradient(135deg, #f97316 0%, #ea580c 50%, #9a3412 100%)">Laranja Inter</option>
-            <option value="linear-gradient(135deg, #3b82f6 0%, #1d4ed8 50%, #1e3a8a 100%)">Azul Itaú / Bradesco</option>
-            <option value="linear-gradient(135deg, #334155 0%, #0f172a 50%, #020617 100%)">Black / Carbon</option>
+            <option value="linear-gradient(135deg, #f97316 0%, #ea580c 50%, #9a3412 100%)">Laranja Inter / BMG</option>
+            <option value="linear-gradient(135deg, #ec4899 0%, #be185d 50%, #831843 100%)">Rosa Neon / Pan</option>
+            <option value="linear-gradient(135deg, #3b82f6 0%, #1d4ed8 50%, #1e3a8a 100%)">Azul Itaú / Bradesco / Caixa</option>
+            <option value="linear-gradient(135deg, #10b981 0%, #059669 50%, #064e3b 100%)">Verde PicPay / Sicoob / Sicredi</option>
+            <option value="linear-gradient(135deg, #eab308 0%, #ca8a04 50%, #854d0e 100%)">Amarelo Banco do Brasil / Will</option>
+            <option value="linear-gradient(135deg, #334155 0%, #0f172a 50%, #020617 100%)">Black / Carbon C6 / BTG / XP</option>
           </select>
         </div>
 
@@ -851,6 +1127,89 @@
           <button type="submit" class="btn btn-primary">Criar Meta</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- MODAL TUTORIAL INTERATIVO / BOAS-VINDAS PRIMEIRO ACESSO -->
+  <div class="modal-backdrop hidden" id="welcomeTutorialModal">
+    <div class="modal-content tutorial-modal-box" style="max-width: 500px; text-align: center;">
+      <div class="tutorial-progress-dots">
+        <span class="dot active" data-step="1"></span>
+        <span class="dot" data-step="2"></span>
+        <span class="dot" data-step="3"></span>
+        <span class="dot" data-step="4"></span>
+        <span class="dot" data-step="5"></span>
+      </div>
+
+      <!-- PASSO 1 -->
+      <div class="tutorial-step-content" id="step1">
+        <div class="tutorial-icon-fire"><i class="fa-solid fa-fire-flame-curved"></i></div>
+        <h3 class="tutorial-title">Bem-vindo ao Fenix Wallet! 🎉</h3>
+        <p class="tutorial-text">
+          Sua conta está limpa e 100% pronta para você assumir o controle total do seu dinheiro! Vamos fazer um tour super rápido de 30 segundos.
+        </p>
+      </div>
+
+      <!-- PASSO 2 -->
+      <div class="tutorial-step-content hidden" id="step2">
+        <div class="tutorial-icon-fire" style="background: rgba(16,185,129,0.15); color:#10b981;"><i class="fa-brands fa-pix"></i></div>
+        <h3 class="tutorial-title">1. Saldo no PIX & Extrato 💰</h3>
+        <p class="tutorial-text">
+          Na tela inicial, você pode ajustar seu <strong>Saldo Disponível no PIX</strong> e registrar todas as suas entradas e saídas do dia a dia com gráficos ao vivo.
+        </p>
+      </div>
+
+      <!-- PASSO 3 -->
+      <div class="tutorial-step-content hidden" id="step3">
+        <div class="tutorial-icon-fire" style="background: rgba(225,29,72,0.15); color:#e11d48;"><i class="fa-solid fa-credit-card"></i></div>
+        <h3 class="tutorial-title">2. Cartões & Compras Parceladas 💳</h3>
+        <p class="tutorial-text">
+          Cadastre seus cartões de crédito (Nubank, Inter, Itaú...), acompanhe o limite restante e divida compras em até 24x com cálculo automático de fatura mensal!
+        </p>
+      </div>
+
+      <!-- PASSO 4 -->
+      <div class="tutorial-step-content hidden" id="step4">
+        <div class="tutorial-icon-fire" style="background: rgba(139,92,246,0.15); color:#8b5cf6;"><i class="fa-solid fa-calendar-check"></i></div>
+        <h3 class="tutorial-title">3. Gastos Futuros & Quitação 📅</h3>
+        <p class="tutorial-text">
+          Agende contas fixas (Luz, Água, Internet) e acompanhe o pagamento de financiamentos ou empréstimos até alcançar a quitação total sem juros.
+        </p>
+      </div>
+
+      <!-- PASSO 5 -->
+      <div class="tutorial-step-content hidden" id="step5">
+        <div class="tutorial-icon-fire" style="background: rgba(245,158,11,0.15); color:#f59e0b;"><i class="fa-solid fa-rocket"></i></div>
+        <h3 class="tutorial-title">Tudo Pronto para Começar! 🚀</h3>
+        <p class="tutorial-text">
+          Sua conta iniciou zerada. Clique no botão abaixo, adicione seu primeiro cartão ou saldo e descubra o poder de controlar suas finanças!
+        </p>
+      </div>
+
+      <div class="modal-footer" style="justify-content: space-between; margin-top: 1.5rem;">
+        <button type="button" id="btnPrevTutorialStep" class="btn btn-secondary" disabled>Anterior</button>
+        <button type="button" id="btnNextTutorialStep" class="btn btn-primary">
+          Próximo <i class="fa-solid fa-arrow-right"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE CONQUISTA / PRIMEIRO REGISTRO -->
+  <div class="modal-backdrop hidden" id="achievementModal">
+    <div class="modal-content achievement-box" style="max-width: 420px; text-align: center;">
+      <div class="achievement-icon-glow">
+        <i class="fa-solid fa-trophy" id="achievementIcon"></i>
+      </div>
+      <span class="achievement-badge-tag">CONQUISTA DESBLOQUEADA</span>
+      <h3 id="achievementTitle" class="achievement-title">Parabéns! 🎉</h3>
+      <p id="achievementText" class="achievement-desc">
+        Esse é o seu primeiro lançamento! Continue e descubra como melhorar suas finanças a cada dia.
+      </p>
+
+      <button type="button" class="btn btn-primary full-width closeModalBtn mt-4">
+        <i class="fa-solid fa-fire"></i> Continuar & Descobrir Mais
+      </button>
     </div>
   </div>
 

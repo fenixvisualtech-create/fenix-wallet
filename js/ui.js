@@ -57,6 +57,17 @@ class FinanceUI {
     }, 3200);
   }
 
+  showAchievementModal(ach) {
+    if (!ach) return;
+    const modal = document.getElementById('achievementModal');
+    const titleEl = document.getElementById('achievementTitle');
+    const textEl = document.getElementById('achievementText');
+
+    if (titleEl) titleEl.textContent = ach.title;
+    if (textEl) textEl.textContent = ach.text;
+    if (modal) modal.classList.remove('hidden');
+  }
+
   applyTheme(theme) {
     const html = document.documentElement;
     const icons = document.querySelectorAll('#themeIcon, #themeToggleBtnSettings i');
@@ -171,6 +182,14 @@ class FinanceUI {
         badgeClass = 'urgent';
       }
 
+      let typeBadge = '';
+      if (item.billType === 'financing') {
+        const rem = item.remainingInstallments || 1;
+        typeBadge = `<span class="badge-due urgent" style="background:rgba(139,92,246,0.15); color:#8b5cf6;"><i class="fa-solid fa-flag-checkered"></i> Restam ${rem} parcelas</span>`;
+      } else {
+        typeBadge = `<span class="badge-due pending" style="background:rgba(16,185,129,0.12); color:#10b981;"><i class="fa-solid fa-arrows-rotate"></i> Recorrente Mensal</span>`;
+      }
+
       return `
         <div class="upcoming-card-item">
           <div class="upcoming-left">
@@ -187,7 +206,10 @@ class FinanceUI {
           <div style="display:flex; align-items:center; gap:1rem;">
             <div style="text-align:right;">
               <span class="tx-amount despesa">${this.formatCurrency(item.amount)}</span>
-              <div><span class="badge-due ${badgeClass}">${badgeText}</span></div>
+              <div style="display:flex; gap:0.3rem; justify-content:flex-end; align-items:center; margin-top:0.2rem;">
+                ${typeBadge}
+                <span class="badge-due ${badgeClass}">${badgeText}</span>
+              </div>
             </div>
             <div style="display:flex; gap:0.4rem;">
               ${!isPaid ? `
@@ -233,23 +255,25 @@ class FinanceUI {
 
   renderAuthOverlay() {
     const overlay = document.getElementById('authOverlay');
+    const loginView = document.getElementById('accountLoginView');
     const selectView = document.getElementById('accountSelectView');
     const createView = document.getElementById('accountCreateView');
     const accountsGrid = document.getElementById('accountsGrid');
-    const btnCancelCreate = document.getElementById('btnCancelCreateAccount');
 
     if (!overlay) return;
 
     const accounts = window.store.getAccounts();
     const activeAccount = window.store.getActiveAccount();
+    const isRemember = window.store.getRememberMe();
 
-    if (!activeAccount) {
+    if (!activeAccount || !isRemember) {
       overlay.classList.remove('hidden');
 
-      if (accounts.length > 0) {
-        selectView.classList.remove('hidden');
-        createView.classList.add('hidden');
+      if (loginView) loginView.classList.remove('hidden');
+      if (selectView) selectView.classList.add('hidden');
+      if (createView) createView.classList.add('hidden');
 
+      if (accountsGrid && accounts.length > 0) {
         accountsGrid.innerHTML = accounts.map(acc => `
           <div class="account-card-item select-account-btn" data-id="${acc.id}">
             <div class="acc-left">
@@ -262,11 +286,6 @@ class FinanceUI {
             <i class="fa-solid fa-chevron-right" style="color: var(--accent-red-primary);"></i>
           </div>
         `).join('');
-      } else {
-        selectView.classList.add('hidden');
-        createView.classList.remove('hidden');
-        if (btnCancelCreate) btnCancelCreate.classList.add('hidden');
-        this.renderAvatarOptions();
       }
     } else {
       overlay.classList.add('hidden');
@@ -385,13 +404,13 @@ class FinanceUI {
           <div class="card-top-row">
             <div>
               <span class="card-name-title">${card.name}</span>
-              <div class="card-number-display">${card.number}</div>
+              <div class="card-number-display">${card.number} ${card.bank ? '• ' + card.bank : ''}</div>
             </div>
             <span class="card-brand-tag">${card.brand}</span>
           </div>
 
           <div class="card-spent-info">
-            <span class="spent-label">Gastos na Fatura Atual</span>
+            <span class="spent-label">Fatura a Pagar no Mês</span>
             <span class="spent-value">${this.formatCurrency(spent)}</span>
             <div class="card-limit-bar">
               <div class="card-limit-fill" style="width: ${pct}%;"></div>
