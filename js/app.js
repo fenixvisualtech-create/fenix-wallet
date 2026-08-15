@@ -1100,6 +1100,26 @@ function initDataHandlers() {
       }
     });
   }
+
+  // Excluir Minha Conta Permanentemente
+  const btnDeleteCurrentAccount = document.getElementById('btnDeleteCurrentAccount');
+  const deleteModal = document.getElementById('deleteAccountConfirmModal');
+  const btnConfirmDeleteAccount = document.getElementById('btnConfirmDeleteAccount');
+
+  if (btnDeleteCurrentAccount && deleteModal) {
+    btnDeleteCurrentAccount.addEventListener('click', () => {
+      deleteModal.classList.remove('hidden');
+    });
+  }
+
+  if (btnConfirmDeleteAccount) {
+    btnConfirmDeleteAccount.addEventListener('click', () => {
+      window.store.deleteAccount();
+      if (deleteModal) deleteModal.classList.add('hidden');
+      window.ui.showToast('Sua conta foi excluída permanentemente.', 'info');
+      window.ui.renderAuthOverlay();
+    });
+  }
 }
 
 function downloadFile(content, fileName, contentType) {

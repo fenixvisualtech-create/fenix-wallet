@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fenix-wallet-v2.6';
+const CACHE_NAME = 'fenix-wallet-v3.0';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',

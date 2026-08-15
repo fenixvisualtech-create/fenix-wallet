@@ -171,6 +171,30 @@ class FinanceStore {
     this.setActiveAccountId(null);
   }
 
+  deleteAccount(accountId) {
+    const targetId = accountId || this.getActiveAccountId();
+    if (!targetId) return false;
+
+    // 1. Remove todas as chaves de dados da conta no localStorage
+    localStorage.removeItem(`${STORAGE_KEYS.DATA_PREFIX}${targetId}_pix_initial`);
+    localStorage.removeItem(`${STORAGE_KEYS.DATA_PREFIX}${targetId}_cards`);
+    localStorage.removeItem(`${STORAGE_KEYS.DATA_PREFIX}${targetId}_transactions`);
+    localStorage.removeItem(`${STORAGE_KEYS.DATA_PREFIX}${targetId}_upcoming`);
+    localStorage.removeItem(`${STORAGE_KEYS.DATA_PREFIX}${targetId}_budgets`);
+    localStorage.removeItem(`${STORAGE_KEYS.DATA_PREFIX}${targetId}_goals`);
+    localStorage.removeItem(`${STORAGE_KEYS.DATA_PREFIX}${targetId}_achievements`);
+
+    // 2. Remove a conta do cadastro geral
+    const remainingAccounts = this.getAccounts().filter(a => a.id !== targetId);
+    this.saveAccounts(remainingAccounts);
+
+    // 3. Se for a conta ativa, desconecta
+    if (this.getActiveAccountId() === targetId) {
+      this.logout();
+    }
+    return true;
+  }
+
   // --- ARMAZENAMENTO SEGURO POR CONTA ---
   getAccountStorageKey(key) {
     const activeId = this.getActiveAccountId();
